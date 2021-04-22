@@ -1,44 +1,44 @@
 (local {: view} (require :fennel))
-
+(local _unpack (or _G.unpack table.unpack))
 (local conditions {:scope {:conditions {}
                            :parent nil}})
 (local restarts {:scope {:restarts {}
                          :parent nil}})
 
-(fn find-scope [scope-type name scope]
+(fn find [scope-type name scope]
   (match (?. scope scope-type name)
-    n scope
+    n n
     _ (match scope.parent
-        parent (find-scope scope-type name parent)
+        parent (find scope-type name parent)
         _ nil)))
 
-(fn find-condition-scope [name scope]
-  (find-scope :conditions name scope))
+(fn find-condition [name scope]
+  (find :conditions name scope))
 
-(fn find-restart-scope [name scope]
-  (find-scope :restarts name scope))
+(fn find-restart [name scope]
+  (find :restarts name scope))
 
 (fn throw-error [condition ...]
   (error (.. "condition " condition
              " was thrown with the following arguments: "
              (table.concat (icollect [_ v (ipairs [...])] (view v {:one-line? true})) ", "))))
 
-(fn signal-error* [scope condition ...]
-  (match (and scope (find-condition-scope condition scope))
-    s (match [((. s.conditions condition) condition ...)]
-        [{:restart true} & rest] (unpack rest)
-        _ (signal-error* s.parent condition ...))
-    _ (throw-error condition ...)))
+(fn signal-error* [scope condition-name ...]
+  (match (and scope (find-condition condition-name scope))
+    condition (match (pcall condition condition-name ...)
+                (false {:restart true : data}) (_unpack data)
+                _ (signal-error* scope.parent condition-name ...))
+    _ (throw-error condition-name ...)))
 
 (fn signal-error [signal-name ...]
   (signal-error* conditions.scope signal-name ...))
 
 (fn invoke-restart* [scope restart-name ...]
-  (match (and scope (find-restart-scope restart-name scope))
-    s (match (. s.restarts restart-name)
+  (if scope
+      (match (find-restart restart-name scope)
         restart (restart ...)
-        _ (invoke-restart* s.parent restart-name ...))
-    _ (error (.. "restart " restart-name " is not defined"))))
+        _ (invoke-restart* scope.parent restart-name ...))
+      (error (.. "restart " restart-name " is not defined"))))
 
 (fn invoke-restart [restart-name ...]
   (invoke-restart* restarts.scope restart-name ...))

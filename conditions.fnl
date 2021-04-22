@@ -54,17 +54,21 @@ conditions thrown from within the expression."
        (tset cs#.restarts :scope scope#.parent)
        res#)))
 
-(fn invoke-restart [...]
-  (let [s (gensym)]
-    `(let [cs# ,cs
-           ,s (cs#.invoke-restart ,...)]
-       (lua ,(.. "do return {restart = true}, " (tostring s) "0 end")))))
+(fn invoke-restart [restart-name ...]
+  "Invoke restart `restart-name' to handle condition.
+Must be used only in handler functions defined with `handler-bind'."
+  `(let [cs# ,cs]
+     (_G.error {:restart true
+                :data [(cs#.invoke-restart ,restart-name ,...)]})))
 
-(fn error* [...]
-  (let [s (gensym)]
+
+(fn error* [condition-name ...]
+  "Signal `condition-name' as an error."
+  ;; TODO: replace sym with gensym once the upstream bug is fixed
+  (let [s (sym :_internal_condition_result_)]
     `(let [cs# ,cs
-           ,s (cs#.signal-error ,...)]
-       (lua ,(.. "do return " (tostring s) "0 end")))))
+           ,s (cs#.signal-error ,condition-name ,...)]
+       (lua ,(.. "do return " (tostring s) " end")))))
 
 {: restart-case
  : handler-bind
