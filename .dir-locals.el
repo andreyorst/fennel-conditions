@@ -4,7 +4,11 @@
 ((fennel-mode . ((eval . (font-lock-add-keywords 'fennel-mode
                                                  `((,(rx word-start
                                                          (group
-                                                          (or "restart-case" "handler-bind"))
+                                                          (or "restart-case"
+                                                              "handler-bind"
+                                                              "signal"
+                                                              "error"
+                                                              "invoke-restart"))
                                                          word-end)
                                                     1 'font-lock-keyword-face))))
                  (eval . (put 'handler-bind 'fennel-indent-function 1))
