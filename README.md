@@ -8,7 +8,7 @@ It is based on the idea of leveraging tables to implement pseudo-dynamic scope.
 
 ## Installation
 
-Clone this repo into your project:
+Clone this repository into your project:
 
     git clone https://gitlab.com/andreyorst/fennel-conditions.git
 
@@ -16,7 +16,7 @@ Clone this repo into your project:
 ## Usage
 
 This library provides it's public API in terms of a set of macros.
-Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be compiled in order to use this library in resulting lua application without Fennel.
+Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be compiled in order to use this library in resulting Lua application without Fennel.
 
 To use provided macros in your application, import needed macros from `conditions.fnl` module:
 
@@ -108,7 +108,7 @@ When `error` condition handler is exited with `invoke-restart` the condition wil
 
 A macro for registering handlers for conditions.
 Each condition is bound to a function, which accepts condition as first argument, and decides whether it is able to handle the condition.
-If handler function exits normally, `signal` and `error` are rethrown to an upper handler.
+If handler function exits normally, `signal` and `error` are re-thrown to an upper handler.
 If there's no upper handler, the `error` is thrown as Lua `error`.
 
 ``` fennel
@@ -132,69 +132,14 @@ stack traceback...
 
 ## Examples
 
-Beyond is the port of the example from [Chapter 19 of Practical Common Lisp book](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html).
+Feel free to read [Wiki](https://gitlab.com/andreyorst/fennel-conditions/-/wikis/home) for usage examples.
 
-``` clojure
-(import-macros
- {: restart-case : handler-bind : error : invoke-restart}
- :fennel-conditions.conditions)
 
-(fn well-formed-log-entry? [text]
-  (pick-values 1
-    (text:match "^well formed log entry")))
+## Contributing
 
-(fn parse-log-entry [text]
-  (if (well-formed-log-entry? text)
-      {:parsed-log-entry text}
-      (error :malformed-log-entry-error {:text text})))
+Please do.
+You can report issues or feature request at [project's Gitlab repository](https://gitlab.com/andreyorst/fennel-conditions).
+Consider reading [contribution guidelines](https://gitlab.com/andreyorst/fennel-conditions/-/blob/master/CONTRIBUTING.md) beforehand.
 
-(fn parse-log-file [file]
-  (with-open [f (io.open file :r)]
-    (icollect [line (f:lines)]
-      (restart-case (parse-log-entry line)
-        (:use-value [value] value)
-        (:reparse-entry [fixed-text] (parse-log-entry fixed-text))))))
-
-(fn analyze-entry [entry]
-  entry.parsed-log-entry)
-
-(fn analyze-log [log]
-  (icollect [_ entry (ipairs (parse-log-file log))]
-    (analyze-entry entry)))
-
-(fn fix-log-entry [text]
-  (.. (text:gsub "^not a " "") " (fixed)"))
-
-(fn log-analyzer [log-file]
-  (handler-bind [:malformed-log-entry-error
-                 (fn [_c data]
-                   (invoke-restart :reparse-entry (fix-log-entry data.text)))]
-    (each [_ line (ipairs (analyze-log log-file))]
-      (print line))))
-
-(log-analyzer "log.txt")
-```
-
-For a log file `log.txt` with the following contents:
-
-```
-well formed log entry 1
-well formed log entry 2
-not a well formed log entry 3
-well formed log entry 4
-not a well formed log entry 5
-not a well formed log entry 6
-well formed log entry 7
-```
-
-Calling `log-analyzer` will prints the following:
-
-```
-well formed log entry 1
-well formed log entry 2
-well formed log entry 3 (fixed)
-well formed log entry 4
-well formed log entry 5 (fixed)
-well formed log entry 6 (fixed)
-well formed log entry 7
-```
+<!--  LocalWords:  Lua Lua's Gitlab
+ -->

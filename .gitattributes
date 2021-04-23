@@ -1,0 +1,2 @@
+*.fnl gitlab-language=clojure linguist-language=lua
+.fenneldoc gitlab-language=clojure linguist-language=lua
