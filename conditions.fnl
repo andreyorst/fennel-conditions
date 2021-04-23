@@ -1,8 +1,8 @@
-(local cs
-       `(require (let [[module#] [,...]]
-                   (if (and module# (string.match module# :conditions$))
-                       (.. (string.gsub module# :conditions$ "") :impl.condition-system)
-                       :impl.condition-system))))
+;; Constructing relative path for runtime require
+(local condition-system
+       (if (and ... (string.match ... "conditions$"))
+           (.. (string.gsub ... "conditions$" "") :impl.condition-system)
+           :impl.condition-system))
 
 (fn seq-to-table [seq]
 ;;; Transform sequential bindings into associative table.
@@ -26,51 +26,76 @@ exception."
   (assert-compile (= (% (length binding-vec) 2) 0)
                   "expected even number of signal/handler bindings"
                   binding-vec)
-  `(let [cs# ,cs
+  `(let [cs# (require ,condition-system)
          bindings# ,(seq-to-table binding-vec)
          scope# {:conditions {}
-                 :parent cs#.conditions.scope}
-         _# (do (each [h# f# (pairs bindings#)]
-                  (tset scope#.conditions h# f#))
-                (tset cs#.conditions :scope scope#))
-         res# (do ,...)]
-     (tset cs#.conditions :scope scope#.parent)
-     res#))
+                 :parent cs#.conditions.scope}]
+     (each [h# f# (pairs bindings#)]
+       (tset scope#.conditions h# f#))
+     (tset cs#.conditions :scope scope#)
+     (let [(ok# res#) (pcall #(do ,...))]
+       (tset cs#.conditions :scope scope#.parent)
+       (if ok# res# (assert false res#)))))
 
 (fn restart-case [expr ...]
   "Resumable exception restart point.
 Accepts expression and restarts that can be used when handling
 conditions thrown from within the expression."
-  (let [restarts []]
-    (each [_ [restart & fn-tail] (pairs [...])]
-      (tset restarts restart (list 'fn (unpack fn-tail))))
-    `(let [cs# ,cs
+  (let [restarts (collect [_ [restart & fn-tail] (ipairs [...])]
+                   (values restart (list 'fn (unpack fn-tail))))]
+    `(let [cs# (require ,condition-system)
            scope# {:restarts {}
-                   :parent cs#.restarts.scope}
-           _# (do (each [n# f# (pairs ,restarts)]
-                    (tset scope#.restarts n# f#))
-                  (tset cs#.restarts :scope scope#))
-           res# ,expr]
-       (tset cs#.restarts :scope scope#.parent)
-       res#)))
+                   :parent cs#.restarts.scope}]
+       (each [n# f# (pairs ,restarts)]
+         (tset scope#.restarts n# f#))
+       (tset cs#.restarts :scope scope#)
+       (let [(ok# res#) (pcall (fn [] ,expr))]
+         (tset cs#.restarts :scope scope#.parent)
+         (if ok# res# (assert false res#))))))
+
+(fn handler-case [expr ...]
+  (let [handlers (collect [_ [handler & fn-tail] (ipairs [...])]
+                   (values handler `(fn [...]
+                                      (assert false
+                                              {:handled true
+                                               :data [((fn ,(unpack fn-tail)) ...)]}))))]
+    `(let [cs# (require ,condition-system)
+           scope# {:conditions {}
+                   :parent cs#.conditions.scope}]
+       (each [h# f# (pairs ,handlers)]
+         (tset scope#.conditions h# f#))
+       (tset cs#.conditions :scope scope#)
+       (let [(ok# res#) (pcall (fn [] ,expr))]
+         (tset cs#.restarts :scope scope#.parent)
+         (if ok# res# (assert false res#))))))
 
 (fn invoke-restart [restart-name ...]
   "Invoke restart `restart-name' to handle condition.
 Must be used only in handler functions defined with `handler-bind'."
-  `(let [cs# ,cs]
-     (_G.error {:restart true
-                :data [(cs#.invoke-restart ,restart-name ,...)]})))
+  `(let [cs# (require ,condition-system)]
+     (assert false {:handled true
+                    :data [(cs#.invoke-restart ,restart-name ,...)]})))
 
 
+;; TODO: use `gensym' to capture `signal-error' result and return it
+;;       once https://todo.sr.ht/~technomancy/fennel/54 is fixed
 (fn error* [condition-name ...]
   "Signal `condition-name' as an error."
-  ;; TODO: replace sym with gensym once the upstream bug is fixed
-  (let [s (sym :_internal_condition_result_)]
-    `(let [cs# ,cs
-           ,s (cs#.signal-error ,condition-name ,...)]
-       (lua ,(.. "do return " (tostring s) " end")))))
+  `(let [cs# (require ,condition-system)]
+     (lua "do return")
+     (cs#.signal-error ,condition-name ,...)
+     (lua "end")))
+
+(fn signal [condition-name ...]
+  "Signal `condition-name' as an signal."
+  `(let [cs# (require ,condition-system)]
+     (lua "do return")
+     (cs#.signal-signal ,condition-name ,...)
+     (lua "end")))
 
 {: restart-case
  : handler-bind
+ : handler-case
  :error error*
+ : signal
  : invoke-restart}

@@ -18,20 +18,24 @@
 (fn find-restart [name scope]
   (find :restarts name scope))
 
-(fn throw-error [condition ...]
-  (error (.. "condition " condition
-             " was thrown with the following arguments: "
-             (table.concat (icollect [_ v (ipairs [...])] (view v {:one-line? true})) ", "))))
-
 (fn signal-error* [scope condition-name ...]
   (match (and scope (find-condition condition-name scope))
     condition (match (pcall condition condition-name ...)
-                (false {:restart true : data}) (_unpack data)
+                (false {:handled true : data}) (_unpack data)
                 _ (signal-error* scope.parent condition-name ...))
-    _ (throw-error condition-name ...)))
+    _ (let [msg (.. "condition " (view condition-name {:one-line? true})
+                    " was thrown with the following arguments: "
+                    (table.concat (icollect [_ v (ipairs [...])]
+                                    (view v {:one-line? true})) ", "))]
+        (error msg))))
 
-(fn signal-error [signal-name ...]
-  (signal-error* conditions.scope signal-name ...))
+(fn signal-error [condition-name ...]
+  (signal-error* conditions.scope condition-name ...))
+
+(fn signal-signal [condition-name ...]
+  (match (pcall signal-error* conditions.scope condition-name ...)
+    (true res) res
+    _ nil))
 
 (fn invoke-restart* [scope restart-name ...]
   (if scope
@@ -45,5 +49,6 @@
 
 {: invoke-restart
  : signal-error
+ : signal-signal
  : restarts
  : conditions}

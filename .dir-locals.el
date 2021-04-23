@@ -6,10 +6,12 @@
                                                          (group
                                                           (or "restart-case"
                                                               "handler-bind"
+                                                              "handler-case"
                                                               "signal"
                                                               "error"
                                                               "invoke-restart"))
                                                          word-end)
                                                     1 'font-lock-keyword-face))))
                  (eval . (put 'handler-bind 'fennel-indent-function 1))
-                 (eval . (put 'restart-case 'fennel-indent-function 1)))))
+                 (eval . (put 'restart-case 'fennel-indent-function 1))
+                 (eval . (put 'handler-case 'fennel-indent-function 1)))))
