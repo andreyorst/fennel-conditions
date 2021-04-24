@@ -1,0 +1,17 @@
+;; -*- mode: fennel; -*- vi:ft=fennel
+;; Configuration file for Fenneldoc 0.1.2
+;; https://gitlab.com/andreyorst/fenneldoc
+
+{:ignored-args-patterns ["[a-z]" "%.%.%."]
+ :test-requirements {:conditions.fnl "(require-macros :fennel-test.test)
+                                      (require-macros :conditions)"}
+ :project-copyright "Copyright (C) 2021 Andrey Listopadov"
+ :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
+ :project-doc-order {:impl/condition-system.fnl [:conditions :restarts]
+                     :conditions.fnl [:error
+                                      :warn
+                                      :signal
+                                      :handler-case
+                                      :handler-bind
+                                      :restart-case
+                                      :invoke-restart]}}

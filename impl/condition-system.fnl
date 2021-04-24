@@ -1,9 +1,18 @@
-(local {: view} (require :fennel))
-(local _unpack (or _G.unpack table.unpack))
+(local {: view : metadata} (require :fennel))
+(local _unpack (or table.unpack _G.unpack))
+
 (local conditions {:scope {:conditions {}
                            :parent nil}})
+
+(metadata:set conditions :fnl/docstring
+              "Dynamic scope for conditions.")
+
 (local restarts {:scope {:restarts {}
                          :parent nil}})
+
+(metadata:set restarts :fnl/docstring
+              "Dynamic scope for restarts.")
+
 
 (fn find [scope-type name scope]
   (match (?. scope scope-type name)
@@ -24,10 +33,10 @@
                 (false {:handled true : data}) (_unpack data)
                 _ (raise-error* scope.parent condition-name ...))
     _ (let [msg (.. "condition " (view condition-name {:one-line? true})
-                    " was thrown with the following arguments: "
+                    " was raised with the following arguments: "
                     (table.concat (icollect [_ v (ipairs [...])]
                                     (view v {:one-line? true})) ", "))]
-        (error msg))))
+        (error msg 2))))
 
 (fn raise-error [condition-name ...]
   (raise-error* conditions.scope condition-name ...))
@@ -37,6 +46,19 @@
     (true res) res
     _ nil))
 
+(fn raise-warning [condition-name ...]
+  (match (pcall raise-error* conditions.scope condition-name ...)
+    (true res) res
+    (false msg) (do (io.stderr:write "WARNING: " msg "\n") nil)))
+
+(fn raise [t condition-name ...]
+  "Raise `condition-name' of type `t' with given arguments.
+Supported types include: `:signal`, `:warn`, and `:error`."
+  (match t
+    :signal (raise-signal condition-name ...)
+    :warn (raise-warning condition-name ...)
+    :error (raise-error condition-name ...)))
+
 (fn invoke-restart* [scope restart-name ...]
   (if scope
       (match (find-restart restart-name scope)
@@ -45,10 +67,13 @@
       (error (.. "restart " restart-name " is not defined"))))
 
 (fn invoke-restart [restart-name ...]
+  "Invoke `restart-name' with args."
   (invoke-restart* restarts.scope restart-name ...))
 
-{: invoke-restart
- : raise-error
- : raise-signal
- : restarts
- : conditions}
+(setmetatable
+ {: invoke-restart
+  : raise
+  : restarts
+  : conditions}
+ {:__index
+  {:_DESCRIPTION "Internal API for condition system."}})

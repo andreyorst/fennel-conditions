@@ -1,0 +1,4 @@
+[submodule "fennel-test"]
+	path = fennel-test
+	url = https://gitlab.com/andreyorst/fennel-test.git
+        branch = v0.0.1
