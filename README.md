@@ -21,7 +21,7 @@ Each macro calls internal API functions, which means that `impl/condition-system
 
 ## Documentation
 
-Documentation is auto-generated with [Fenneldoc](https://gitlab.com/andreyorst/fenneldoc) and can be found [here](https://gitlab.com/andreyorst/fennel-condition/-/tree/master/doc).
+Documentation is auto-generated with [Fenneldoc](https://gitlab.com/andreyorst/fenneldoc) and can be found [here](https://gitlab.com/andreyorst/fennel-conditions/-/tree/master/doc).
 
 
 ## Examples
