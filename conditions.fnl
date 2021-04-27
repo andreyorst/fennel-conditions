@@ -1,18 +1,6 @@
 (local condition-system ; Constructing relative path for runtime require
-       (if (and ... (string.match ... "conditions$"))
-           (.. (string.gsub ... "conditions$" "") :impl.condition-system)
-           :impl.condition-system))
-
-;; Helper functions
-
-(fn first [tbl]
-  (. tbl 1))
-
-(fn second [tbl]
-  (. tbl 2))
-
-(fn rest [tbl]
-  ((or table.unpack _G.unpack) tbl 2))
+  (.. (or (: (or ... "") :gsub "conditions$" "") "")
+      :impl.condition-system))
 
 (fn seq-to-table [seq]
 ;;; Transform sequential bindings into associative table.
@@ -40,11 +28,10 @@ exception.
 Handlers executed but their return values are not used:
 
 ``` fennel
-(handler-bind [:signal-condition (fn [] (print \"caught signal condition\") 10)
-               :error-condition (fn [] (print \"caught error condition\") 20)]
-  (error :error-condition))
-;; caught signal condition
-;; => nil
+(assert-not
+ (handler-bind [:signal-condition (fn [] (print \"caught signal condition\") 10)
+                :error-condition (fn [] (print \"caught error condition\") 20)]
+   (signal :error-condition)))
 ```
 
 To provide a return value use either `handler-case' or `restart-case'
@@ -57,10 +44,10 @@ and `invoke-restart'."
     (let [handler (. binding-vec i)]
       (assert-compile (or (sym? handler)
                           (and (list? handler)
-                               (or (= 'fn (first handler))
-                                   (= 'hashfn (first handler))
-                                   (= 'lambda (first handler))
-                                   (= 'λ (first handler)))))
+                               (or (= 'fn (. handler 1))
+                                   (= 'hashfn (. handler 1))
+                                   (= 'lambda (. handler 1))
+                                   (= 'λ (. handler 1)))))
                       "handler must be a function"
                       handler)))
   `(let [cs# (require ,condition-system)
@@ -71,7 +58,7 @@ and `invoke-restart'."
        (tset cs#.conditions :scope scope#.parent)
        (if ok# res# (assert false res#)))))
 
-(fn restart-case [expr ...]
+(fn restart-case [expr ...]1
   "Resumable condition restart point.
 Accepts expression `expr' and restarts that can be used when handling
 conditions thrown from within the expression.  Similarly to
@@ -93,10 +80,20 @@ Specifying two restarts for `:signal-condition`:
 ```"
   (each [_ restart (ipairs [...])] ; check if all restarts are lists that define functions
     (assert-compile (list? restart) "restarts must be defined as lists" restart)
-    (assert-compile (or (sequence? (second restart))) "expected parameter table" restart)
-    (assert-compile (= :string (type (first restart))) "restart name must be a string" restart))
-  (let [restarts {:restarts (collect [_ [restart & fn-tail] (ipairs [...])]
-                              (values restart (list 'fn (unpack fn-tail))))}]
+    (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
+    (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
+  (let [restarts {:restarts (collect [n [restart & fn-tail] (ipairs [...])]
+                              (let [[args descr body] fn-tail]
+                                (values restart {:handler (list 'fn (unpack fn-tail))
+                                                 :interactive? (not= nil (next args))
+                                                 :name restart
+                                                 : n
+                                                 :description (when (and (= :string (type descr))
+                                                                         (not= nil body))
+                                                                descr)
+                                                 :args (when (not= nil (next args))
+                                                         (icollect [_ v (ipairs args)]
+                                                           (view v {:one-line? true})))})))}]
     `(let [cs# (require ,condition-system)
            scope# ,restarts]
        (tset scope# :parent cs#.restarts.scope)
@@ -136,7 +133,7 @@ Handling `error' condition:
 ```"
   (each [_ handler (ipairs [...])]
     (assert-compile (list? handler) "handlers must be defined as lists" handler)
-    (assert-compile (sequence? (second handler)) "expected parameter table" handler))
+    (assert-compile (sequence? (. handler 2)) "expected parameter table" handler))
   (let [handlers {:conditions (collect [_ [handler & fn-tail] (ipairs [...])]
                                 (values handler (construct-handler fn-tail)))}]
     `(let [cs# (require ,condition-system)
@@ -156,23 +153,25 @@ Transfers control flow to handler function when executed.
 Handle the `error' with `:use-value' restart:
 
 ``` fennel
-(assert-eq 42 (handler-bind [:error-condition
-                             (fn [_c x]
-                               (invoke-restart :use-value (+ x 10))
-                               (print \"never prints\"))]
-                (restart-case (do (error :error-condition 32)
-                                  (print \"also never prints\"))
-                  (:use-value [x] x))))
+(fn handle-error []
+  (handler-bind [:error-condition
+                 (fn [_c x]
+                   (invoke-restart :use-value (+ x 10))
+                   (print \"never prints\"))]
+    (restart-case (do (error :error-condition 32)
+                      (print \"also never prints\"))
+      (:use-value [x] x))))
+
+(assert-eq 42 (handle-error))
 ```"
   `(let [cs# (require ,condition-system)]
      (assert false {:handled true
                     :data [(cs#.invoke-restart ,restart-name ,...)]})))
 
-
 ;; TODO: use `gensym' to capture `raise-error' result and return it
 ;;       once https://todo.sr.ht/~technomancy/fennel/54 is fixed
-(fn error* [condition-name ...]
-  "Raise `condition-name' as an error.
+(fn error* [condition-object ...]
+  "Raise `condition-object' as an error.
 
 This macro is meant to replace inbuilt `error' function.  It has a bit
 different interface than conventional Lua `error' function, as it
@@ -184,13 +183,15 @@ interrupt function execution where it was called, and no code after
 condition.
 
 ```
->> (error :condition-name 42)
-runtime error: condition \"condition-name\" was thrown with the following arguments: 42
+>> (error :condition-object 42)
+runtime error: condition \"condition-object\" was thrown with the following arguments: 42
 stack traceback...
 ```
 
 # Examples
-Error is thrown if not handled:
+Error is thrown a Lua if not handled, thus can be caught with
+`pcall` (note that `error' is wrapped into anonymous function, because
+it is a macro):
 
 ``` fennel
 (assert-not (pcall #(error :error-condition)))
@@ -199,8 +200,11 @@ Error is thrown if not handled:
 Errors can be handled with `handler-case':
 
 ``` fennel
-(assert-eq 42 (handler-case (warn :signal-condition 42)
-                (:signal-condition [_ x] x)))
+(fn handle-error []
+  (handler-case (error :error-condition 42)
+    (:error-condition [_ x] x)))
+
+(assert-eq 42 (handle-error))
 ```
 
 Errors, signal, and warnings can be recovered with `handler-bind' and
@@ -213,16 +217,48 @@ Errors, signal, and warnings can be recovered with `handler-bind' and
                 (restart-case (error :error-condition 32)
                   (:use-value [x] x))))
 ```"
-  (assert-compile (not= 'nil condition-name)
+  (assert-compile (not= 'nil condition-object)
                   "condition must not be nil"
-                  condition-name)
+                  condition-object)
   `(let [cs# (require ,condition-system)]
      (lua "do return")
-     (cs#.raise :error ,condition-name ,...)
+     (cs#.raise :error ,condition-object ,...)
      (lua "end")))
 
-(fn signal [condition-name ...]
-  "Raise `condition-name' as a signal.
+(fn cerror [continue-description condition-object ...]
+  "Raise `condition-object' as an error with continue restart described by `continue-description'.
+
+Similarly to `error', `cerror' raises condition as an error, but
+automatically binds the `continue' restart, which can be used either
+with the `continue' function in the handler, or in the interactive
+debugger.  The `continue-description' is a string, describing what
+will happen if `continue' restart is invoked.
+
+# Examples
+Convert `x` to positive value if it is negative:
+
+``` fennel
+(fn sqrt [x]
+  (var x x)
+  (when (< x 0)
+    (cerror \"convert x to positive value\" :neg-sqrt x)
+    (set x (- x)))
+  (math.sqrt x))
+
+(handler-bind [:neg-sqrt (fn [] (continue))]
+  (sqrt -4))
+```"
+  (assert-compile (= :string (type continue-description))
+                  "continue-description must be a string"
+                  continue-description)
+  (assert-compile (not= 'nil condition-object)
+                  "condition-object must not be nil"
+                  condition-object)
+  `(restart-case ,(error* condition-object ...)
+     (:continue [] ,continue-description nil)))
+
+(fn signal [condition-object ...]
+  "Raise `condition-object' as a signal.
 
 Raises given condition as a signal.  Signals can be handled
 with `handler-case' or `handler-bind', and don't promote to errors if
@@ -240,16 +276,16 @@ Signal is ignored if not handled:
 
 Signals can be handled like any other conditions.
 See `error' for examples of how to handle signals."
-  (assert-compile (not= 'nil condition-name)
+  (assert-compile (not= 'nil condition-object)
                   "condition must not be nil"
-                  condition-name)
+                  condition-object)
   `(let [cs# (require ,condition-system)]
      (lua "do return")
-     (cs#.raise :signal ,condition-name ,...)
+     (cs#.raise :signal ,condition-object ,...)
      (lua "end")))
 
-(fn warn [condition-name ...]
-  "Raise `condition-name' as a warning.
+(fn warn [condition-object ...]
+  "Raise `condition-object' as a warning.
 Warnings are not thrown as errors when no handler is bound but their
 message is printed to stderr.
 
@@ -264,14 +300,20 @@ Warnings can be handled like any other conditions.
 See `error' for examples of how to handle warnings."
   `(let [cs# (require ,condition-system)]
      (lua "do return")
-     (cs#.raise :warn ,condition-name ,...)
+     (cs#.raise :warn ,condition-object ,...)
      (lua "end")))
+
+(fn continue []
+  "Invoke `continue' restart bound by `cerror'."
+  `,(invoke-restart :continue))
 
 (setmetatable
  {: restart-case
   : handler-bind
   : handler-case
   :error error*
+  : cerror
+  : continue
   : signal
   : warn
   : invoke-restart}

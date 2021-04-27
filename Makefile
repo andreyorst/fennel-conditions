@@ -1,7 +1,9 @@
 LUA ?= lua
 FENNEL ?= fennel
 FNLSOURCES = impl/condition-system.fnl
+FNLMACROS = conditions.fnl
 LUASOURCES = $(FNLSOURCES:.fnl=.lua)
+VERSION ?= $(shell git describe --abbrev=0)
 
 .PHONY: build clean help doc
 
@@ -16,7 +18,7 @@ clean:
 	rm -f $(LUASOURCES)
 
 doc:
-	fenneldoc conditions.fnl $(FNLSOURCES)
+	fenneldoc --project-version $(VERSION) --config $(FNLMACROS) $(FNLSOURCES)
 
 help:
 	@echo "make       -- create lua library" >&2

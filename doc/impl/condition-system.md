@@ -1,4 +1,4 @@
-# Condition-system.fnl
+# Condition-system.fnl (v0.0.2)
 Internal API for condition system.
 
 **Table of contents**
@@ -27,10 +27,10 @@ Invoke `restart-name` with args.
 Function signature:
 
 ```
-(raise t condition-name ...)
+(raise t condition-object ...)
 ```
 
-Raise `condition-name` of type `t` with given arguments.
+Raise `condition-object` of type `t` with given arguments.
 Supported types include: `:signal`, `:warn`, and `:error`.
 
 
