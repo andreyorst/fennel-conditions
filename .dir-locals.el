@@ -7,11 +7,15 @@
                                                           (or "restart-case"
                                                               "handler-bind"
                                                               "handler-case"
+                                                              "warn"
                                                               "signal"
                                                               "error"
+                                                              "cerror"
+                                                              "continue"
                                                               "invoke-restart"))
                                                          word-end)
                                                     1 'font-lock-keyword-face))))
+                 (eval . (put 'invoke-restart 'fennel-indent-function 1))
                  (eval . (put 'handler-bind 'fennel-indent-function 1))
                  (eval . (put 'restart-case 'fennel-indent-function 1))
                  (eval . (put 'handler-case 'fennel-indent-function 1)))))
