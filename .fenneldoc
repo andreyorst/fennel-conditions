@@ -4,7 +4,7 @@
 
 {:fennel-path {}
  :function-signatures true
- :ignored-args-patterns ["[a-z]" "%.%.%."]
+ :ignored-args-patterns ["[a-z]" "%.%.%." "arg1"]
  :inline-references "link"
  :insert-comment true
  :insert-copyright true
@@ -20,19 +20,30 @@
  :order "alphabetic"
  :out-dir "./doc"
  :project-copyright "Copyright (C) 2021 Andrey Listopadov"
- :project-doc-order {:conditions.fnl ["error"
-                                      "cerror"
-                                      "warn"
-                                      "signal"
-                                      "handler-case"
-                                      "handler-bind"
-                                      "restart-case"
-                                      "invoke-restart"
-                                      "continue"]
-                     :impl/condition-system.fnl ["conditions" "restarts"]}
+ :project-doc-order {:impl/condition-system.fnl ["handlers"
+                                                 "restarts"
+                                                 "raise"
+                                                 "handle"
+                                                 "invoke-restart"]
+                     :init.fnl ["error"
+                                "warn"
+                                "signal"
+                                "invoke-restart"
+                                "continue"]
+                     :maceos.fnl ["cerror"
+                                  "handler-case"
+                                  "handler-bind"
+                                  "restart-case"]}
  :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
  :project-version "v0.0.2"
  :sandbox true
- :test-requirements {:conditions.fnl "(require-macros :fennel-test.test)
-                                      (require-macros :conditions)"}
+ :test-requirements {:impl/utils.fnl "(require-macros :fennel-test.test)
+                                      (require-macros :macros)
+                                      (local {: make-condition} (require :init))"
+                     :init.fnl "(require-macros :fennel-test.test)
+                                (require-macros :macros)
+                                (local {: make-condition} (require :init))"
+                     :macros.fnl "(require-macros :fennel-test.test)
+                                  (require-macros :macros)
+                                  (local {: signal : continue : error} (require :init))"}
  :toc true}

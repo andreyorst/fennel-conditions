@@ -1,170 +1,159 @@
-(local {: view : metadata : eval} (require :fennel))
-(local _unpack (or table.unpack _G.unpack))
+(local module (: (or ... "") :gsub "impl%.condition%-system$" ""))
+(local {: metadata} (require :fennel))
+(local {: get-data
+        : get-name
+        : compose-error-message
+        : pack
+        :unpack _unpack}
+  (require (.. module :impl.utils)))
+(local {: invoke-debugger}
+  (require (.. module :impl.debugger)))
 
-(local conditions
-  (metadata:set {:scope {:conditions {}
-                         :parent nil}}
-                :fnl/docstring "Dynamic scope for conditions."))
+;; Private library API
+(local condition-system
+  {:compose-error-message
+   (metadata:set compose-error-message :fnl/docstring "See [utils.md#compose-error-message](utils.md#compose-error-message)")
+   :pack
+   (metadata:set pack :fnl/docstring "See [utils.md#pack](utils.md#pack)")
+   :unpack
+   (metadata:set _unpack :fnl/docstring "See [utils.md#unpack](utils.md#unpack)")})
 
-(local restarts
-  (metadata:set {:scope {:restarts []
-                         :parent nil}}
-                :fnl/docstring "Dynamic scope for restarts."))
 
-(fn find [scope-type name scope]
-  (match (?. scope scope-type name)
-    n n
-    _ (match scope.parent
-        parent (find scope-type name parent)
-        _ nil)))
+;;; Handlers
 
-(fn find-condition [name scope]
-  (find :conditions name scope))
+(set condition-system.handlers
+     (metadata:set {:handlers {}
+                    :parent nil}
+                   :fnl/docstring "Dynamic scope for condition handlers."))
 
-(fn find-restart [name scope]
-  (find :restarts name scope))
+(fn find-parent-handler [condition-object scope]
+;;; Searches handler for `condition-object` parent in current scope
+;;; `scope` only.
+  (when condition-object
+    (match (. scope.handlers (?. condition-object :id :parent :id))
+      handler {: handler :target scope.target :data condition-object.data}
+      nil (find-parent-handler condition-object.parent scope))))
 
-(fn build-arg-str [sep args]
-  (let [res []]
-    (for [i 1 args.n]
-      (table.insert res (view (. args i) {:one-line? true})))
-    (table.concat res sep)))
+(fn find-object-handler [condition-object scope]
+;;; Searches the handler for the `condition-object` in dynamic scope
+;;; `scope`.  If no handler is found in the current scope, searches
+;;; for handlers of all condition object parents.  If no parent
+;;; handler found goes to upper scope.
+  (when scope
+    (match (. scope.handlers condition-object.id)
+      handler {: handler :target scope.target :data condition-object.data}
+      nil (match (find-parent-handler condition-object scope)
+            parent-handler parent-handler
+            nil (find-object-handler condition-object scope.parent)))))
 
-(fn throw-error* [condition-object ...]
-  (let [args (table.pack ...)
-        msg (.. "condition " (view condition-object {:one-line? true})
-                " was raised"
-                (if (> args.n 0)
-                    (..  " with the following arguments: "
-                         (build-arg-str ", " args))
-                    ""))]
-    (error msg 2)))
+(fn find-primitive-handler [condition-object scope]
+;;; Checks is object is present in dynamic scope and a handler is
+;;; bound to it.
+  (when scope
+    (match (. scope.handlers condition-object)
+      handler {: handler :target scope.target}
+      nil (find-primitive-handler condition-object scope.parent))))
 
-(fn build-arg-str [sep args]
-  (let [res []]
-    (for [i 1 args.n]
-      (table.insert res (view (. args i) {:one-line? true})))
-    (table.concat res sep)))
+(fn find-handler [condition-object scope]
+;;; Finds `condition-object' handler in dynamic scope `scope`.  If
+;;; `condition-object' is a table with `type` key equal to
+;;; `:condition` searches handler based on condition object's
+;;; inheritance.  If anything else, searches handler by object
+;;; reference.
+  (if (and (= :table (type condition-object))
+           (= :condition condition-object.type))
+      (find-object-handler condition-object scope)
+      (find-primitive-handler condition-object scope)))
 
-(fn flatten-restarts [restarts scope]
-  (if scope
-      (let [ordered []]
-        (each [name {: n &as restart} (pairs scope.restarts)]
-          (tset ordered n restart))
-        (each [_ restart (ipairs ordered)]
-          (table.insert restarts restart))
-        (flatten-restarts restarts scope.parent))
-      restarts))
+(fn condition-system.handle [condition-object type*]
+  "Handle the `condition-object' of `type*'.
 
-(fn take-action [{: name : handler : interactive? : docstring : args}]
-  (if interactive?
-      (do (io.stderr:write
-           "Provide inputs for "
-           (if args
-               (.. name " (args: [" (table.concat args " ") "])")
-               name)
-           " (^D to cancel)\n"
-           "debugger:" name ">> ")
-          (match (io.stdin:read "*l")
-            input {:handled true
-                   :data [(handler (_unpack (eval (.. "[" input "]") {:env _G})))]}
-            _ (do (io.stderr:write "\n")
-                  (error :cancel))))
-      (handler)))
+Finds the `condition-object' handler in the dynamic scope.  If found,
+calls the handler, and returns a table with `:state` set to
+`:handled`, and `:data` bound to a packed table of handler's return
+values."
+  (match (find-handler condition-object condition-system.handlers)
+    {: handler : target :data ?data}
+    {:state :handled
+     :data (pack (handler condition-object (_unpack (or ?data []))))
+     :target target
+     :condition condition-object
+     :type type*}
+    _ {:state :error
+       :message (.. "no handler bound for condition: "
+                    (get-name condition-object))}))
 
-(fn display-restart-prompt [restarts]
-  (each [i {: name : handler &as handler-object} (ipairs restarts)]
-    (io.stderr:write i ": [" name "]"
-                     (match handler-object.description
-                       description (.. " " (description:gsub "\n" " "))
-                       _ "") "\n"))
-  (io.stderr:write "debugger>> "))
 
-(fn restart-menu [restarts]
-;;; Reads user input, asserts if it is a number.  If not, asks input
-;;; again.  The last restart is always non-interactive internal
-;;; restart defined by the debugger.  Other restarts are considered
-;;; interactive.
-  (display-restart-prompt restarts)
-  (let [n (length restarts)]
-    (match (tonumber (io.stdin:read "*l"))
-      ;; "throw" restart
-      n (let [{: handler} (. restarts n)]
-          (handler))
-      ;; user-defined restarts
-      (where action (<= 1 action (- n 1)))
-      (match (pcall take-action (. restarts action))
-        (true {:handled true : data &as res}) (_unpack data)
-        (false _) (restart-menu restarts))
-      _ (do (io.stderr:write
-             "\rWrong action. Use number between 1 and "  n "\n")
-            (restart-menu restarts)))))
+;;; Restarts
 
-(fn invoke-debugger [scope condition-object ...]
-  (let [args (table.pack ...)
-        restarts (flatten-restarts [] scope)]
-    (table.insert restarts
-                  {:name "throw"
-                   :handler #(throw-error* condition-object (_unpack args))
-                   :description "Throw condition as a Lua error"})
-    (io.stderr:write
-     "Debugger was invoked on unhandled condition "
-     (view condition-object {:one-line? true})
-     (if (> args.n 0)
-         (.. ", raised with the following arguments: "
-             (build-arg-str ", " args))
-         "")
-     "\n")
-    (restart-menu restarts)))
+(set condition-system.restarts
+     (metadata:set {:restarts []
+                    :parent nil}
+                   :fnl/docstring "Dynamic scope for restarts."))
 
-(fn throw-error [try-debugger? condition-object ...]
-  (if (and try-debugger? _G.fennel-conditions/use-debugger?)
-      (invoke-debugger restarts.scope condition-object ...)
-      (throw-error* condition-object ...)))
+(fn find-restart [restart-name scope]
+;;; Searches `restart-name' in dynamic scope `scope`.  Modifies the
+;;; restart object, by setting it's `:target` field to the `scope`
+;;; target.
+  (when scope
+    (match (?. scope :restarts restart-name)
+      restart (doto restart (tset :target scope.target))
+      nil (find-restart restart-name scope.parent))))
 
-(fn raise-error* [try-debugger? scope condition-object ...]
-  (match (and scope (find-condition condition-object scope))
-    condition (match (pcall condition condition-object ...)
-                (false {:handled true : data}) (_unpack data)
-                _ (raise-error* scope.parent condition-object ...))
-    _ (throw-error try-debugger? condition-object ...)))
+(fn condition-system.invoke-restart [restart-name ...]
+  "Searches for `restart-name' in the dynamic scope and invokes the
+restart with given arguments.  Always throws error, as
+`invoke-restart' must transfer control flow out of the handler.  If
+restart is found, calls the restart function and returns a table with
+`:state` set to `:restarted`, and `:data` bound to a packed table of
+restart's return values."
+  (error (match (find-restart restart-name condition-system.restarts)
+           {: restart : target} {:state :restarted
+                                 :data (pack (restart ...))
+                                 :target target}
+           _ {:state :error
+              :message (.. "restart " restart-name " is not found")})))
 
-(fn raise-error [condition-object ...]
-  (raise-error* true conditions.scope condition-object ...))
 
-(fn raise-signal [condition-object ...]
-  (match (pcall raise-error* false conditions.scope condition-object ...)
-    (true res) res
+;;; Conditions
+
+(fn raise-signal [condition-object type*]
+;;; Raises `condition-object' as a condition of given `type*`, or
+;;; `:signal` if `type*` is not specified.  Conditions of types
+;;; `:signal` and `:warn` do not interrupt program flow, but still can
+;;; be handled.
+  (match (condition-system.handle condition-object (or type* :signal))
+    (where (or {:state :handled &as res}
+               {:state :restarted &as res})) (error res)
     _ nil))
 
-(fn raise-warning [condition-object ...]
-  (match (pcall raise-error* false conditions.scope condition-object ...)
-    (true res) res
-    (false msg) (do (io.stderr:write "WARNING: " msg "\n") nil)))
+(fn raise-warning [condition-object]
+;;; Raises `condition-object' as a warning.  If condition was not
+;;; handled, prints the warning message to stderr, and continues.
+  (match (raise-signal condition-object :warn)
+    nil (do (io.stderr:write "WARNING: "
+                             (compose-error-message condition-object)
+                             "\n")
+            nil)))
 
-(fn raise [t condition-object ...]
-  "Raise `condition-object' of type `t' with given arguments.
-Supported types include: `:signal`, `:warn`, and `:error`."
-  (match t
-    :signal (raise-signal condition-object ...)
-    :warn (raise-warning condition-object ...)
-    :error (raise-error condition-object ...)))
+(fn raise-error [condition-object]
+;;; The only raise that always throws it's result as an error when
+;;; condition was not handled, unless `use-debugger?' is not set to
+;;; logical true.  If `use-debugger?' is `true`, invokes the
+;;; interactive debugger.
+  (match (raise-signal condition-object :error)
+    nil (if _G.fennel-conditions/use-debugger?
+            (invoke-debugger condition-object condition-system.restarts)
+            (error (compose-error-message condition-object)))))
 
-(fn invoke-restart* [scope restart-name ...]
-  (if scope
-      (match (find-restart restart-name scope)
-        {:handler restart} (restart ...)
-        _ (invoke-restart* scope.parent restart-name ...))
-      (error (.. "restart " restart-name " is not defined") 2)))
+(fn condition-system.raise [condition-type condition-object]
+  "Raises `condition-object' as a condition of `condition-type'.
+`condition-object' must not be `nil'."
+  (assert (not= nil condition-object)
+          "condition must not be nil")
+  (match condition-type
+    :signal (raise-signal condition-object)
+    :warn (raise-warning condition-object)
+    :error (raise-error condition-object)))
 
-(fn invoke-restart [restart-name ...]
-  "Invoke `restart-name' with args."
-  (invoke-restart* restarts.scope restart-name ...))
-
-(setmetatable
- {: invoke-restart
-  : raise
-  : restarts
-  : conditions}
- {:__index
-  {:_DESCRIPTION "Internal API for condition system."}})
+condition-system

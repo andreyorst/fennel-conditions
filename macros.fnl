@@ -1,6 +1,16 @@
 (local condition-system ; Constructing relative path for runtime require
-  (.. (or (: (or ... "") :gsub "conditions$" "") "")
+  (.. (: (or ... "") :gsub "macros$" "")
       :impl.condition-system))
+
+(fn function-form? [form]
+;;; Checks if list evaluates to function
+  (when (list? form)
+    (let [[f name? arglist] form]
+      (if (or (= 'fn f) (= 'lambda f) (= 'λ f))
+          (if (sym? name?)
+              (sequence? arglist)
+              (sequence? name?))
+          (= 'hashfn f)))))
 
 (fn seq-to-table [seq]
 ;;; Transform sequential bindings into associative table.
@@ -42,23 +52,25 @@ and `invoke-restart'."
   ;; check each handler to be a symbol or a function definition
   (for [i 2 (length binding-vec) 2]
     (let [handler (. binding-vec i)]
-      (assert-compile (or (sym? handler)
-                          (and (list? handler)
-                               (or (= 'fn (. handler 1))
-                                   (= 'hashfn (. handler 1))
-                                   (= 'lambda (. handler 1))
-                                   (= 'λ (. handler 1)))))
+      (assert-compile (or (sym? handler) (function-form? handler))
                       "handler must be a function"
                       handler)))
-  `(let [cs# (require ,condition-system)
-         scope# {:conditions ,(seq-to-table binding-vec)}]
-     (tset scope# :parent cs#.conditions.scope)
-     (tset cs#.conditions :scope scope#)
-     (let [(ok# res#) (pcall (fn [] ,...))]
-       (tset cs#.conditions :scope scope#.parent)
-       (if ok# res# (assert false res#)))))
+  `(let [target# {}
+         cs# (require ,condition-system)
+         scope# {:handlers ,(seq-to-table binding-vec)}]
+     (tset scope# :parent cs#.handlers)
+     (tset scope# :target target#)
+     (tset cs# :handlers scope#)
+     (let [(ok# res#) (pcall #[(do ,...)])]
+       (tset cs# :handlers scope#.parent)
+       (if ok# (cs#.unpack res#)
+           (match res#
+             {:state :restarted :target target# :data data#} (cs#.unpack data#)
+             {:state :handled} (cs#.raise res#.type (cs#.compose-error-message res#.condition-object))
+             {:state :error :message msg#} (_G.error msg#)
+             _# (_G.error res#))))))
 
-(fn restart-case [expr ...]1
+(fn restart-case [expr ...]
   "Resumable condition restart point.
 Accepts expression `expr' and restarts that can be used when handling
 conditions thrown from within the expression.  Similarly to
@@ -84,7 +96,7 @@ Specifying two restarts for `:signal-condition`:
     (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
   (let [restarts {:restarts (collect [n [restart & fn-tail] (ipairs [...])]
                               (let [[args descr body] fn-tail]
-                                (values restart {:handler (list 'fn (unpack fn-tail))
+                                (values restart {:restart (list 'fn (unpack fn-tail))
                                                  :interactive? (not= nil (next args))
                                                  :name restart
                                                  : n
@@ -94,20 +106,19 @@ Specifying two restarts for `:signal-condition`:
                                                  :args (when (not= nil (next args))
                                                          (icollect [_ v (ipairs args)]
                                                            (view v {:one-line? true})))})))}]
-    `(let [cs# (require ,condition-system)
+    `(let [target# {}
+           cs# (require ,condition-system)
            scope# ,restarts]
-       (tset scope# :parent cs#.restarts.scope)
-       (tset cs#.restarts :scope scope#)
-       (let [(ok# res#) (pcall (fn [] ,expr))]
-         (tset cs#.restarts :scope scope#.parent)
-         (if ok# res# (assert false res#))))))
-
-(fn construct-handler [fn-tail]
-;;; Constructs handler function for `handler-case'
-  `(fn [...]
-     (assert false
-             {:handled true
-              :data [((fn ,(unpack fn-tail)) ...)]})))
+       (tset scope# :parent cs#.restarts)
+       (tset scope# :target target#)
+       (tset cs# :restarts scope#)
+       (let [(ok# res#) (pcall (fn [] [(do ,expr)]))]
+         (tset cs# :restarts scope#.parent)
+         (if ok# (cs#.unpack res#)
+             (match res#
+               {:state :restarted :target target#} (cs#.unpack res#.data)
+               {:state :error :message msg#} (_G.error msg#)
+               _# (_G.error res#)))))))
 
 (fn handler-case [expr ...]
   "Condition handling.
@@ -134,96 +145,59 @@ Handling `error' condition:
   (each [_ handler (ipairs [...])]
     (assert-compile (list? handler) "handlers must be defined as lists" handler)
     (assert-compile (sequence? (. handler 2)) "expected parameter table" handler))
-  (let [handlers {:conditions (collect [_ [handler & fn-tail] (ipairs [...])]
-                                (values handler (construct-handler fn-tail)))}]
-    `(let [cs# (require ,condition-system)
+  (let [handlers {:handlers (collect [_ [handler & fn-tail] (ipairs [...])]
+                              (values handler (list 'fn (unpack fn-tail))))}]
+    `(let [target# {}
+           cs# (require ,condition-system)
            scope# ,handlers]
-       (tset scope# :parent cs#.conditions.scope)
-       (tset cs#.conditions :scope scope#)
-       (let [(ok# res#) (pcall (fn [] ,expr))]
-         (tset cs#.conditions :scope scope#.parent)
-         (if ok# res# (assert false res#))))))
+       (tset scope# :parent cs#.handlers)
+       (tset scope# :target target#)
+       (tset cs# :handlers scope#)
+       (let [(ok# res#) (pcall #[(do ,expr)])]
+         (tset cs# :handlers scope#.parent)
+         (if ok# (cs#.unpack res#)
+             (match res#
+               {:state :handled :target target#} (cs#.unpack res#.data)
+               {:state :handled} (_G.error res#)
+               {:state :error :message msg#} (_G.error msg#)
+               _# (_G.error res#)))))))
 
-(fn invoke-restart [restart-name ...]
-  "Invoke restart `restart-name' to handle condition.
-Must be used only in handler functions defined with `handler-bind'.
-Transfers control flow to handler function when executed.
-
-# Examples
-Handle the `error' with `:use-value' restart:
-
-``` fennel
-(fn handle-error []
-  (handler-bind [:error-condition
-                 (fn [_c x]
-                   (invoke-restart :use-value (+ x 10))
-                   (print \"never prints\"))]
-    (restart-case (do (error :error-condition 32)
-                      (print \"also never prints\"))
-      (:use-value [x] x))))
-
-(assert-eq 42 (handle-error))
-```"
-  `(let [cs# (require ,condition-system)]
-     (assert false {:handled true
-                    :data [(cs#.invoke-restart ,restart-name ,...)]})))
-
-;; TODO: use `gensym' to capture `raise-error' result and return it
-;;       once https://todo.sr.ht/~technomancy/fennel/54 is fixed
-(fn error* [condition-object ...]
-  "Raise `condition-object' as an error.
-
-This macro is meant to replace inbuilt `error' function.  It has a bit
-different interface than conventional Lua `error' function, as it
-accepts condition as it's first argument and arguments of that
-condition.  Similarly to `signal' and Lua's `error', this macro will
-interrupt function execution where it was called, and no code after
-`error' will be executed.  If no handler bound for raised condition,
-`error' is promoted to Lua error with detailed message about
-condition.
-
-```
->> (error :condition-object 42)
-runtime error: condition \"condition-object\" was thrown with the following arguments: 42
-stack traceback...
-```
+(fn define-condition [condition-symbol ...]
+  "Create base condition object with `condition-symbol' from which
+conditions will be derived with `make-condition'.  Accepts additional
+`:parent` and `:name` key value pairs.
 
 # Examples
-Error is thrown a Lua if not handled, thus can be caught with
-`pcall` (note that `error' is wrapped into anonymous function, because
-it is a macro):
+Creating `error` condition:
 
 ``` fennel
-(assert-not (pcall #(error :error-condition)))
+(define-condition error)
 ```
 
-Errors can be handled with `handler-case':
+Creating `simple-error` condition with parent set to `error` condition:
 
 ``` fennel
-(fn handle-error []
-  (handler-case (error :error-condition 42)
-    (:error-condition [_ x] x)))
-
-(assert-eq 42 (handle-error))
+(define-condition error)
+(define-condition simple-error :parent error)
 ```
 
-Errors, signal, and warnings can be recovered with `handler-bind' and
-`restart-case' by using `invoke-restart':
+Altering condition's printable name:
 
 ``` fennel
-(assert-eq 42 (handler-bind [:error-condition
-                             (fn [_ x]
-                               (invoke-restart :use-value (+ x 10)))]
-                (restart-case (error :error-condition 32)
-                  (:use-value [x] x))))
+(define-condition dbze :name \"divide by zero error\")
 ```"
-  (assert-compile (not= 'nil condition-object)
-                  "condition must not be nil"
-                  condition-object)
-  `(let [cs# (require ,condition-system)]
-     (lua "do return")
-     (cs#.raise :error ,condition-object ,...)
-     (lua "end")))
+  (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-object)
+  (let [allowed-options {:parent true :name true}
+        options (seq-to-table [...])
+        condition-object {:name (tostring condition-symbol) :type :condition}]
+    (each [k (pairs options)]
+      (assert-compile (. allowed-options k) (.. "invalid key: " (tostring k)) k))
+    (each [k (pairs allowed-options)]
+      (match (. options k)
+        v (tset condition-object k v)))
+    `(local ,condition-symbol (let [condition-object# ,condition-object]
+                                (doto condition-object#
+                                  (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
   "Raise `condition-object' as an error with continue restart described by `continue-description'.
@@ -254,69 +228,20 @@ Convert `x` to positive value if it is negative:
   (assert-compile (not= 'nil condition-object)
                   "condition-object must not be nil"
                   condition-object)
-  `(restart-case ,(error* condition-object ...)
+  `(restart-case (let [cs# (require ,condition-system)]
+                   (cs#.raise :error ,condition-object))
      (:continue [] ,continue-description nil)))
 
-(fn signal [condition-object ...]
-  "Raise `condition-object' as a signal.
 
-Raises given condition as a signal.  Signals can be handled
-with `handler-case' or `handler-bind', and don't promote to errors if
-no handler found.  This macro will interrupt function execution at the
-point where it was called, and no code after `signal' will be
-executed.
-
-
-# Examples
-Signal is ignored if not handled:
-
-``` fennel
-(assert-eq nil (signal :signal-condition 10))
-```
-
-Signals can be handled like any other conditions.
-See `error' for examples of how to handle signals."
-  (assert-compile (not= 'nil condition-object)
-                  "condition must not be nil"
-                  condition-object)
-  `(let [cs# (require ,condition-system)]
-     (lua "do return")
-     (cs#.raise :signal ,condition-object ,...)
-     (lua "end")))
-
-(fn warn [condition-object ...]
-  "Raise `condition-object' as a warning.
-Warnings are not thrown as errors when no handler is bound but their
-message is printed to stderr.
-
-# Examples
-Warning is ignored if not handled:
-
-``` fennel
-(assert-eq nil (warn :warn-condition))
-```
-
-Warnings can be handled like any other conditions.
-See `error' for examples of how to handle warnings."
-  `(let [cs# (require ,condition-system)]
-     (lua "do return")
-     (cs#.raise :warn ,condition-object ,...)
-     (lua "end")))
-
-(fn continue []
-  "Invoke `continue' restart bound by `cerror'."
-  `,(invoke-restart :continue))
 
 (setmetatable
  {: restart-case
   : handler-bind
   : handler-case
-  :error error*
   : cerror
   : continue
-  : signal
-  : warn
-  : invoke-restart}
+  : invoke-restart
+  : define-condition}
  {:__index
   {:_DESCRIPTION "Condition system for Fennel language.
 

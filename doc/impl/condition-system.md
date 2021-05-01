@@ -1,18 +1,45 @@
 # Condition-system.fnl (v0.0.2)
-Internal API for condition system.
 
 **Table of contents**
 
-- [`conditions`](#conditions)
+- [`handlers`](#handlers)
 - [`restarts`](#restarts)
-- [`invoke-restart`](#invoke-restart)
 - [`raise`](#raise)
+- [`handle`](#handle)
+- [`invoke-restart`](#invoke-restart)
+- [`compose-error-message`](#compose-error-message)
+- [`pack`](#pack)
+- [`unpack`](#unpack)
 
-## `conditions`
-Dynamic scope for conditions.
+## `handlers`
+Dynamic scope for condition handlers.
 
 ## `restarts`
 Dynamic scope for restarts.
+
+## `raise`
+Function signature:
+
+```
+(raise condition-type condition-object)
+```
+
+Raises `condition-object` as a condition of `condition-type`.
+`condition-object` must not be `nil`.
+
+## `handle`
+Function signature:
+
+```
+(handle condition-object type*)
+```
+
+Handle the `condition-object` of `type*`.
+
+Finds the `condition-object` handler in the dynamic scope.  If found,
+calls the handler, and returns a table with `:state` set to
+`:handled`, and `:data` bound to a packed table of handler's return
+values.
 
 ## `invoke-restart`
 Function signature:
@@ -21,17 +48,21 @@ Function signature:
 (invoke-restart restart-name ...)
 ```
 
-Invoke `restart-name` with args.
+Searches for `restart-name` in the dynamic scope and invokes the
+restart with given arguments.  Always throws error, as
+[`invoke-restart`](#invoke-restart) must transfer control flow out of the handler.  If
+restart is found, calls the restart function and returns a table with
+`:state` set to `:restarted`, and `:data` bound to a packed table of
+restart's return values.
 
-## `raise`
-Function signature:
+## `compose-error-message`
+See [utils.md#compose-error-message](utils.md#compose-error-message)
 
-```
-(raise t condition-object ...)
-```
+## `pack`
+See [utils.md#pack](utils.md#pack)
 
-Raise `condition-object` of type `t` with given arguments.
-Supported types include: `:signal`, `:warn`, and `:error`.
+## `unpack`
+See [utils.md#unpack](utils.md#unpack)
 
 
 ---
