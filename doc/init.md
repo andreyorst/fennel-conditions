@@ -1,4 +1,4 @@
-# Init.fnl (v0.0.2)
+# Init.fnl (v0.0.3)
 
 **Table of contents**
 

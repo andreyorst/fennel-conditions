@@ -1,4 +1,4 @@
-# Debugger.fnl (v0.0.2)
+# Debugger.fnl (v0.0.3)
 
 **Table of contents**
 
