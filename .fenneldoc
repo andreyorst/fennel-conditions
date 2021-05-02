@@ -30,17 +30,14 @@
                                 "signal"
                                 "invoke-restart"
                                 "continue"]
-                     :maceos.fnl ["cerror"
+                     :macros.fnl ["cerror"
                                   "handler-case"
                                   "handler-bind"
                                   "restart-case"]}
  :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
  :project-version "v0.0.3"
  :sandbox true
- :test-requirements {:impl/utils.fnl "(require-macros :fennel-test.test)
-                                      (require-macros :macros)
-                                      (local {: make-condition} (require :init))"
-                     :init.fnl "(require-macros :fennel-test.test)
+ :test-requirements {:init.fnl "(require-macros :fennel-test.test)
                                 (require-macros :macros)
                                 (local {: make-condition} (require :init))"
                      :macros.fnl "(require-macros :fennel-test.test)

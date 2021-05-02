@@ -63,9 +63,9 @@ and `invoke-restart'."
      (tset cs# :handlers scope#)
      (let [(ok# res#) (pcall #[(do ,...)])]
        (tset cs# :handlers scope#.parent)
-       (if ok# (cs#.unpack res#)
+       (if ok# ((or table.unpack _G.unpack) res#)
            (match res#
-             {:state :restarted :target target# :data data#} (cs#.unpack data#)
+             {:state :restarted :target target# :data data#} ((or table.unpack _G.unpack) (data#))
              {:state :handled} (cs#.raise res#.type (cs#.compose-error-message res#.condition-object))
              {:state :error :message msg#} (_G.error msg#)
              _# (_G.error res#))))))
@@ -114,9 +114,9 @@ Specifying two restarts for `:signal-condition`:
        (tset cs# :restarts scope#)
        (let [(ok# res#) (pcall (fn [] [(do ,expr)]))]
          (tset cs# :restarts scope#.parent)
-         (if ok# (cs#.unpack res#)
+         (if ok# ((or table.unpack _G.unpack) res#)
              (match res#
-               {:state :restarted :target target#} (cs#.unpack res#.data)
+               {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.data))
                {:state :error :message msg#} (_G.error msg#)
                _# (_G.error res#)))))))
 
@@ -155,9 +155,9 @@ Handling `error' condition:
        (tset cs# :handlers scope#)
        (let [(ok# res#) (pcall #[(do ,expr)])]
          (tset cs# :handlers scope#.parent)
-         (if ok# (cs#.unpack res#)
+         (if ok# ((or table.unpack _G.unpack) res#)
              (match res#
-               {:state :handled :target target#} (cs#.unpack res#.data)
+               {:state :handled :target target#} ((or table.unpack _G.unpack) res#.data)
                {:state :handled} (_G.error res#)
                {:state :error :message msg#} (_G.error msg#)
                _# (_G.error res#)))))))

@@ -12,10 +12,10 @@ library.
 **Table of contents**
 
 - [`cerror`](#cerror)
-- [`define-condition`](#define-condition)
-- [`handler-bind`](#handler-bind)
 - [`handler-case`](#handler-case)
+- [`handler-bind`](#handler-bind)
 - [`restart-case`](#restart-case)
+- [`define-condition`](#define-condition)
 
 ## `cerror`
 Function signature:
@@ -47,35 +47,33 @@ Convert `x` to positive value if it is negative:
   (sqrt -4))
 ```
 
-## `define-condition`
+## `handler-case`
 Function signature:
 
 ```
-(define-condition condition-symbol ...)
+(handler-case expr ...)
 ```
 
-Create base condition object with `condition-symbol` from which
-conditions will be derived with `make-condition`.  Accepts additional
-`:parent` and `:name` key value pairs.
+Condition handling.
+Accepts expression `expr` and handlers that can be used when handling
+conditions raised from within the expression.  Provides the facility
+to catch named conditions raised with `signal` or `error` macros.  If
+any condition is raised, before propagating condition to error, a
+handler is searched.  If handler is bound for this condition, it is
+executed, and the result of [`handler-case`](#handler-case) expression will be result
+of the handler.
+
+Handlers are lists where first object represents condition, which can
+be of any type, and the rest is fn-tail - sequential table of function
+arguments, and function body.
+
 
 ### Examples
-Creating `error` condition:
+Handling `error` condition:
 
 ``` fennel
-(define-condition error)
-```
-
-Creating `simple-error` condition with parent set to `error` condition:
-
-``` fennel
-(define-condition error)
-(define-condition simple-error :parent error)
-```
-
-Altering condition's printable name:
-
-``` fennel
-(define-condition dbze :name "divide by zero error")
+(assert-eq 42 (handler-case (error :error-condition)
+                (:error-condition [] 42)))
 ```
 
 ## `handler-bind`
@@ -109,35 +107,6 @@ Handlers executed but their return values are not used:
 To provide a return value use either [`handler-case`](#handler-case) or [`restart-case`](#restart-case)
 and `invoke-restart`.
 
-## `handler-case`
-Function signature:
-
-```
-(handler-case expr ...)
-```
-
-Condition handling.
-Accepts expression `expr` and handlers that can be used when handling
-conditions raised from within the expression.  Provides the facility
-to catch named conditions raised with `signal` or `error` macros.  If
-any condition is raised, before propagating condition to error, a
-handler is searched.  If handler is bound for this condition, it is
-executed, and the result of [`handler-case`](#handler-case) expression will be result
-of the handler.
-
-Handlers are lists where first object represents condition, which can
-be of any type, and the rest is fn-tail - sequential table of function
-arguments, and function body.
-
-
-### Examples
-Handling `error` condition:
-
-``` fennel
-(assert-eq 42 (handler-case (error :error-condition)
-                (:error-condition [] 42)))
-```
-
 ## `restart-case`
 Function signature:
 
@@ -163,6 +132,37 @@ Specifying two restarts for `:signal-condition`:
 (restart-case (signal :signal-condition)
   (:some-restart [] :body)
   (:some-other-restart [] :body))
+```
+
+## `define-condition`
+Function signature:
+
+```
+(define-condition condition-symbol ...)
+```
+
+Create base condition object with `condition-symbol` from which
+conditions will be derived with `make-condition`.  Accepts additional
+`:parent` and `:name` key value pairs.
+
+### Examples
+Creating `error` condition:
+
+``` fennel
+(define-condition error)
+```
+
+Creating `simple-error` condition with parent set to `error` condition:
+
+``` fennel
+(define-condition error)
+(define-condition simple-error :parent error)
+```
+
+Altering condition's printable name:
+
+``` fennel
+(define-condition dbze :name "divide by zero error")
 ```
 
 

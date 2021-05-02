@@ -1,7 +1,9 @@
-(local {: raise : pack : invoke-restart}                               ; Constructing relative path
+(local {: raise : invoke-restart}       ; Constructing relative path
   (require (if (and ... (not= ... :init))
                (.. ... :.impl.condition-system)
                :impl.condition-system)))
+
+(local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
 
 (fn error* [condition-object]
   "Raise `condition-object' as an error.

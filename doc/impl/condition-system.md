@@ -56,6 +56,12 @@ restart is found, calls the restart function and returns a table with
 restart's return values.
 
 ## `compose-error-message`
+Function signature:
+
+```
+(compose-error-message condition-object)
+```
+
 See [utils.md#compose-error-message](utils.md#compose-error-message)
 
 ## `pack`
