@@ -1,4 +1,4 @@
-# Init.fnl (v0.0.3)
+# Init.fnl (v0.0.5)
 
 **Table of contents**
 
@@ -32,6 +32,10 @@ condition.
 runtime error: condition "condition-object" was thrown with the following arguments: 42
 stack traceback...
 ```
+
+Errors derive from both `:fennel-conditions/error` and
+`:fennel-conditions/condition`, and can be catched with any of these
+handlers.
 
 ### Examples
 Error is thrown a Lua if not handled, thus can be caught with
@@ -76,6 +80,10 @@ Raise `condition-object` as a warning.
 Warnings are not thrown as errors when no handler is bound but their
 message is printed to stderr.
 
+Warnings derive from both `:fennel-conditions/error` and
+`:fennel-conditions/condition`, and can be catched with any of these
+handlers.
+
 ### Examples
 Warning is ignored if not handled:
 
@@ -101,6 +109,8 @@ no handler found.  This macro will interrupt function execution at the
 point where it was called, and no code after [`signal`](#signal) will be
 executed.
 
+Signals derive from `:fennel-conditions/condition`, and can be catched
+with thesis handler.
 
 ### Examples
 Signal is ignored if not handled:

@@ -61,11 +61,13 @@ and `invoke-restart'."
      (tset scope# :parent cs#.handlers)
      (tset scope# :target target#)
      (tset cs# :handlers scope#)
-     (let [(ok# res#) (pcall #[(do ,...)])]
+     (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
        (tset cs# :handlers scope#.parent)
-       (if ok# ((or table.unpack _G.unpack) res#)
+       (if ok# (cs#.unpack res# 1 res#.n)
            (match res#
-             {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.restart))
+             {:state :restarted :target target#}
+             (let [res# (res#.restart)]
+               (cs#.unpack res# 1 res#.n))
              {:state :handled} (cs#.raise res#.type (cs#.compose-error-message res#.condition-object))
              {:state :error :message msg#} (_G.error msg#)
              _# (_G.error res#))))))
@@ -112,11 +114,11 @@ Specifying two restarts for `:signal-condition`:
        (tset scope# :parent cs#.restarts)
        (tset scope# :target target#)
        (tset cs# :restarts scope#)
-       (let [(ok# res#) (pcall (fn [] [(do ,expr)]))]
+       (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :restarts scope#.parent)
-         (if ok# ((or table.unpack _G.unpack) res#)
+         (if ok# (cs#.unpack res# 1 res#.n)
              (match res#
-               {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.restart))
+               {:state :restarted :target target#} (res#.restart)
                {:state :error :message msg#} (_G.error msg#)
                _# (_G.error res#)))))))
 
@@ -153,12 +155,11 @@ Handling `error' condition:
        (tset scope# :parent cs#.handlers)
        (tset scope# :target target#)
        (tset cs# :handlers scope#)
-       (let [(ok# res#) (pcall #[(do ,expr)])]
+       (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :handlers scope#.parent)
-         (if ok# ((or table.unpack _G.unpack) res#)
+         (if ok# (cs#.unpack res# 1 res#.n)
              (match res#
-               {:state :handled :target target#} ((or table.unpack _G.unpack) res#.data)
-               {:state :handled} (_G.error res#)
+               {:state :handled :target target# :data data#} (cs#.unpack data# 1 data#.n)
                {:state :error :message msg#} (_G.error msg#)
                _# (_G.error res#)))))))
 
@@ -233,6 +234,9 @@ Convert `x` to positive value if it is negative:
      (:fennel-conditions/continue [] ,continue-description nil)))
 
 (fn ignore-errors [...]
+  "Ignore all conditions of type error.  If errors occurred, returns nil
+and condition as values.  If no errors occurred returns the resulting
+values normally."
   `(handler-case (do ,...)
      (:fennel-conditions/error [c#] (values nil c#))))
 

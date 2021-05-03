@@ -1,9 +1,7 @@
-(local {: raise : invoke-restart}       ; Constructing relative path
+(local {: raise : invoke-restart : pack} ; Constructing relative path
   (require (if (and ... (not= ... :init))
                (.. ... :.impl.condition-system)
                :impl.condition-system)))
-
-(local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
 
 (fn error* [condition-object]
   "Raise `condition-object' as an error.
@@ -111,7 +109,7 @@ of additional arguments that are passed as arguments to handlers."
                  (= :condition condition-object.type)
                  (not= nil condition-object.id))
             "condition must derive from existing condition object")
-    {:data (if arg1 (pack arg1 ...) condition-object.data)
+    {:data (if arg1 (pack arg1 ...))
      :id condition-object.id
      :parent condition-object.parent
      :type :condition}))

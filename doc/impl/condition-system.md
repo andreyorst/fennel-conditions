@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.0.3)
+# Condition-system.fnl (v0.0.5)
 
 **Table of contents**
 
@@ -52,8 +52,8 @@ Searches for `restart-name` in the dynamic scope and invokes the
 restart with given arguments.  Always throws error, as
 [`invoke-restart`](#invoke-restart) must transfer control flow out of the handler.  If
 restart is found, calls the restart function and returns a table with
-`:state` set to `:restarted`, and `:data` bound to a packed table of
-restart's return values.
+`:state` set to `:restarted`, and `:restart` bound to the restart
+function.
 
 ## `compose-error-message`
 Function signature:
@@ -62,13 +62,33 @@ Function signature:
 (compose-error-message condition-object)
 ```
 
-See [utils.md#compose-error-message](utils.md#compose-error-message)
+Composes message for `condition-object` based on it's name and data
+stored within the object.
+
+### Examples
+Conditions without data produce short messages:
+
+``` fennel
+(define-condition simple-error)
+(assert-eq
+ "condition simple-error was raised"
+ (compose-error-message simple-error))
+```
+
+Conditions with data produce extended messages:
+
+``` fennel
+(define-condition simple-error)
+(assert-eq
+ "condition simple-error was raised with the following arguments: 1, 2, 3"
+ (compose-error-message (make-condition simple-error 1 2 3)))
+```
 
 ## `pack`
-See [utils.md#pack](utils.md#pack)
+Portable `table.pack` implementation.
 
 ## `unpack`
-See [utils.md#unpack](utils.md#unpack)
+Portable `table.unpack` implementation.
 
 
 ---

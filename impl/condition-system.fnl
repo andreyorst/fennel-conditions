@@ -94,7 +94,6 @@ Conditions with data produce extended messages:
 (local _unpack (or table.unpack _G.unpack))
 (local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
 
-
 ;;; Debugger
 
 (fn flatten-restarts [restarts scope]
@@ -117,10 +116,10 @@ Conditions with data produce extended messages:
                          " (^D to cancel)\n"
                          "debugger:" name ">> ")
                         (match (io.stdin:read "*l")
-                          input #(pack (restart (eval (.. "(values " input ")"))))
+                          input #(restart (eval (.. "(values " input ")")))
                           _ (do (io.stderr:write "\n")
                                 (error :cancel))))
-                    #(pack (restart)))]
+                    restart)]
     {:state :restarted
      : restart
      : target}))
@@ -264,7 +263,9 @@ previous debug level."
 ;;; Private library API
 
 (local condition-system
-  {:compose-error-message compose-error-message})
+  {:compose-error-message compose-error-message
+   :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
+   :unpack (metadata:set _unpack :fnl/docstring "Portable `table.unpack` implementation.")})
 
 
 ;;; Handlers
@@ -279,7 +280,7 @@ previous debug level."
 ;;; `scope` only.
   (when condition-object
     (match (. scope.handlers (?. condition-object :id :parent :id))
-      handler {: handler :target scope.target :data condition-object.data}
+      handler {: handler :target scope.target}
       nil (find-parent-handler condition-object.parent scope))))
 
 (fn find-object-handler [condition-object type* scope]
@@ -291,7 +292,7 @@ previous debug level."
     (match (or (. scope.handlers condition-object.id)
                (. scope.handlers (.. :fennel-conditions/ type*))
                (. scope.handlers :fennel-conditions/condition))
-      handler {: handler :target scope.target :data condition-object.data}
+      handler {: handler :target scope.target}
       nil (match (find-parent-handler condition-object scope)
             parent-handler parent-handler
             nil (find-object-handler condition-object type* scope.parent)))))
@@ -325,9 +326,9 @@ calls the handler, and returns a table with `:state` set to
 `:handled`, and `:data` bound to a packed table of handler's return
 values."
   (match (find-handler condition-object type* condition-system.handlers)
-    {: handler : target :data ?data}
+    {: handler : target}
     {:state :handled
-     :data (pack (handler condition-object (_unpack (or ?data []))))
+     :data (pack (handler condition-object (_unpack (get-data condition-object))))
      :target target
      :condition condition-object
      :type type*}
@@ -358,12 +359,12 @@ values."
 restart with given arguments.  Always throws error, as
 `invoke-restart' must transfer control flow out of the handler.  If
 restart is found, calls the restart function and returns a table with
-`:state` set to `:restarted`, and `:data` bound to a packed table of
-restart's return values."
+`:state` set to `:restarted`, and `:restart` bound to the restart
+function."
   (let [args (pack ...)]
     (error (match (find-restart restart-name condition-system.restarts)
              {: restart : target} {:state :restarted
-                                   :restart #(pack (restart (_unpack args)))
+                                   :restart #(restart (_unpack args 1 args.n))
                                    :target target}
              _ {:state :error
                 :message (.. "restart " (view restart-name) " is not found")}) 2)))

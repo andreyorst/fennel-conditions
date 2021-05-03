@@ -35,15 +35,15 @@
                                   "handler-bind"
                                   "restart-case"]}
  :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
- :project-version "v0.0.3"
+ :project-version "v0.0.5"
  :sandbox true
- :test-requirements {:init.fnl "(require-macros :fennel-test.test)
+ :test-requirements {:impl/condition-system.fnl "(require-macros :fennel-test.test)
+                                                 (require-macros :macros)
+                                                 (local {: signal : continue : error : make-condition} (require :init))"
+                     :init.fnl "(require-macros :fennel-test.test)
                                 (require-macros :macros)
                                 (local {: make-condition} (require :init))"
                      :macros.fnl "(require-macros :fennel-test.test)
                                   (require-macros :macros)
-                                  (local {: signal : continue : error} (require :init))"
-                     :impl/condition-system.fnl "(require-macros :fennel-test.test)
-                                                 (require-macros :macros)
-                                                 (local {: signal : continue : error : make-condition} (require :init))"}
+                                  (local {: signal : continue : error} (require :init))"}
  :toc true}

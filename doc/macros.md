@@ -1,4 +1,4 @@
-# Macros.fnl (v0.0.3)
+# Macros.fnl (v0.0.5)
 Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common
@@ -16,6 +16,7 @@ library.
 - [`handler-bind`](#handler-bind)
 - [`restart-case`](#restart-case)
 - [`define-condition`](#define-condition)
+- [`ignore-errors`](#ignore-errors)
 
 ## `cerror`
 Function signature:
@@ -164,6 +165,17 @@ Altering condition's printable name:
 ``` fennel
 (define-condition dbze :name "divide by zero error")
 ```
+
+## `ignore-errors`
+Function signature:
+
+```
+(ignore-errors ...)
+```
+
+Ignore all conditions of type error.  If errors occurred, returns nil
+and condition as values.  If no errors occurred returns the resulting
+values normally.
 
 
 ---

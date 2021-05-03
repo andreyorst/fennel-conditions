@@ -46,4 +46,4 @@
                 "well formed log entry 5 (fixed)"
                 "well formed log entry 6 (fixed)"
                 "well formed log entry 7"]
-               (log-analyzer "tests/log.txt"))))
+               (log-analyzer "tests/data/log.txt"))))
