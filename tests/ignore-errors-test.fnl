@@ -12,7 +12,7 @@
        (ignore-errors (signal :signal))
      (:signal [] 42)))
   (assert-eq
-   42
-   (handler-case
-       (ignore-errors (error :error))
-     (:error [] 42))))
+   [nil :error]
+   [(handler-case
+        (ignore-errors (error :error))
+      (:error [] 42))]))

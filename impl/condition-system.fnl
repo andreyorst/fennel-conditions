@@ -282,27 +282,31 @@ previous debug level."
       handler {: handler :target scope.target :data condition-object.data}
       nil (find-parent-handler condition-object.parent scope))))
 
-(fn find-object-handler [condition-object scope]
+(fn find-object-handler [condition-object type* scope]
 ;;; Searches the handler for the `condition-object` in dynamic scope
 ;;; `scope`.  If no handler is found in the current scope, searches
 ;;; for handlers of all condition object parents.  If no parent
 ;;; handler found goes to upper scope.
   (when scope
-    (match (. scope.handlers condition-object.id)
+    (match (or (. scope.handlers condition-object.id)
+               (. scope.handlers (.. ::fennel-conditions/ type*))
+               (. scope.handlers ::fennel-conditions/condition))
       handler {: handler :target scope.target :data condition-object.data}
       nil (match (find-parent-handler condition-object scope)
             parent-handler parent-handler
-            nil (find-object-handler condition-object scope.parent)))))
+            nil (find-object-handler condition-object type* scope.parent)))))
 
-(fn find-primitive-handler [condition-object scope]
+(fn find-primitive-handler [condition-object type* scope]
 ;;; Checks is object is present in dynamic scope and a handler is
 ;;; bound to it.
   (when scope
-    (match (. scope.handlers condition-object)
+    (match (or (. scope.handlers condition-object)
+               (. scope.handlers (.. ::fennel-conditions/ type*))
+               (. scope.handlers ::fennel-conditions/condition))
       handler {: handler :target scope.target}
-      nil (find-primitive-handler condition-object scope.parent))))
+      nil (find-primitive-handler condition-object type* scope.parent))))
 
-(fn find-handler [condition-object scope]
+(fn find-handler [condition-object type* scope]
 ;;; Finds `condition-object' handler in dynamic scope `scope`.  If
 ;;; `condition-object' is a table with `type` key equal to
 ;;; `:condition` searches handler based on condition object's
@@ -310,8 +314,8 @@ previous debug level."
 ;;; reference.
   (if (and (= :table (type condition-object))
            (= :condition condition-object.type))
-      (find-object-handler condition-object scope)
-      (find-primitive-handler condition-object scope)))
+      (find-object-handler condition-object type* scope)
+      (find-primitive-handler condition-object type* scope)))
 
 (fn condition-system.handle [condition-object type*]
   "Handle the `condition-object' of `type*'.
@@ -320,7 +324,7 @@ Finds the `condition-object' handler in the dynamic scope.  If found,
 calls the handler, and returns a table with `:state` set to
 `:handled`, and `:data` bound to a packed table of handler's return
 values."
-  (match (find-handler condition-object condition-system.handlers)
+  (match (find-handler condition-object type* condition-system.handlers)
     {: handler : target :data ?data}
     {:state :handled
      :data (pack (handler condition-object (_unpack (or ?data []))))
@@ -329,7 +333,8 @@ values."
      :type type*}
     _ {:state :error
        :message (.. "no handler bound for condition: "
-                    (get-name condition-object))}))
+                    (get-name condition-object))
+       :condition condition-object}))
 
 
 ;;; Restarts
@@ -361,17 +366,17 @@ restart's return values."
                                    :restart #(pack (restart (_unpack args)))
                                    :target target}
              _ {:state :error
-                :message (.. "restart " (view restart-name) " is not found")}))))
+                :message (.. "restart " (view restart-name) " is not found")}) 2)))
 
 
 ;;; Conditions
 
-(fn raise-signal [condition-object type*]
+(fn raise-condition [condition-object type*]
 ;;; Raises `condition-object' as a condition of given `type*`, or
 ;;; `:signal` if `type*` is not specified.  Conditions of types
 ;;; `:signal` and `:warn` do not interrupt program flow, but still can
 ;;; be handled.
-  (match (condition-system.handle condition-object (or type* :signal))
+  (match (condition-system.handle condition-object (or type* :condition))
     (where (or {:state :handled &as res}
                {:state :restarted &as res})) (error res)
     _ nil))
@@ -379,7 +384,7 @@ restart's return values."
 (fn raise-warning [condition-object]
 ;;; Raises `condition-object' as a warning.  If condition was not
 ;;; handled, prints the warning message to stderr, and continues.
-  (match (raise-signal condition-object :warn)
+  (match (raise-condition condition-object :warning)
     nil (do (io.stderr:write "WARNING: "
                              (compose-error-message condition-object)
                              "\n")
@@ -390,10 +395,10 @@ restart's return values."
 ;;; condition was not handled, unless `use-debugger?' is not set to
 ;;; logical true.  If `use-debugger?' is `true`, invokes the
 ;;; interactive debugger.
-  (match (raise-signal condition-object :error)
+  (match (raise-condition condition-object :error)
     nil (if _G.fennel-conditions/use-debugger?
             (invoke-debugger condition-object condition-system.restarts)
-            (error (compose-error-message condition-object)))))
+            (error (compose-error-message condition-object) 2))))
 
 (fn condition-system.raise [condition-type condition-object]
   "Raises `condition-object' as a condition of `condition-type'.
@@ -401,8 +406,8 @@ restart's return values."
   (assert (not= nil condition-object)
           "condition must not be nil")
   (match condition-type
-    :signal (raise-signal condition-object)
-    :warn (raise-warning condition-object)
+    :condition (raise-condition condition-object)
+    :warning (raise-warning condition-object)
     :error (raise-error condition-object)))
 
 condition-system

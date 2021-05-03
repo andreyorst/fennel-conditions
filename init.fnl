@@ -75,7 +75,7 @@ Signal is ignored if not handled:
 
 Signals can be handled like any other conditions.
 See `error' for examples of how to handle signals."
-  (raise :signal condition-object))
+  (raise :condition condition-object))
 
 (fn warn [condition-object]
   "Raise `condition-object' as a warning.
@@ -91,7 +91,7 @@ Warning is ignored if not handled:
 
 Warnings can be handled like any other conditions.
 See `error' for examples of how to handle warnings."
-  (raise :warn condition-object))
+  (raise :warning condition-object))
 
 (fn make-condition [condition-object arg1 ...]
   "Derives condition from base `condition-object'.  Accepts any amount
@@ -132,7 +132,7 @@ Handle the `error' with `:use-value' restart:
 
 (fn continue []
   "Invoke the `continue' restart bound by `cerror' macro."
-  (invoke-restart :continue))
+  (invoke-restart ::fennel-conditions/continue))
 
 {:error error*
  : signal

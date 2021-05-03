@@ -42,5 +42,8 @@
                                 (local {: make-condition} (require :init))"
                      :macros.fnl "(require-macros :fennel-test.test)
                                   (require-macros :macros)
-                                  (local {: signal : continue : error} (require :init))"}
+                                  (local {: signal : continue : error} (require :init))"
+                     :impl/condition-system.fnl "(require-macros :fennel-test.test)
+                                                 (require-macros :macros)
+                                                 (local {: signal : continue : error : make-condition} (require :init))"}
  :toc true}
