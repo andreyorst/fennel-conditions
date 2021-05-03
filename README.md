@@ -20,6 +20,10 @@ This library provides it's public API in two files: `init.fnl` and `macros.fnl`.
 `init.fnl` module defines functions `error`, `warn`, `signal`, `invoke-restart`, and `make-condition`.
 `macros.fnl` module provides `restart-case`, `handler-bind`, `handler-case`, `cerror`, `define-condition`, `ignore-errors` macros.
 
+Every condition derives from `:fennel-conditions/condition` type.
+Errors derive from both `:fennel-conditions/condition` and `:fennel-conditions/error`.
+Warnings derive from both `:fennel-conditions/condition` and `:fennel-conditions/warning`.
+
 Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be included in order to use this library in resulting Lua application.
 See [`--require-as-include`](https://fennel-lang.org/reference#include) flag in compiler options.
 

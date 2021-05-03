@@ -289,8 +289,8 @@ previous debug level."
 ;;; handler found goes to upper scope.
   (when scope
     (match (or (. scope.handlers condition-object.id)
-               (. scope.handlers (.. ::fennel-conditions/ type*))
-               (. scope.handlers ::fennel-conditions/condition))
+               (. scope.handlers (.. :fennel-conditions/ type*))
+               (. scope.handlers :fennel-conditions/condition))
       handler {: handler :target scope.target :data condition-object.data}
       nil (match (find-parent-handler condition-object scope)
             parent-handler parent-handler
@@ -301,8 +301,8 @@ previous debug level."
 ;;; bound to it.
   (when scope
     (match (or (. scope.handlers condition-object)
-               (. scope.handlers (.. ::fennel-conditions/ type*))
-               (. scope.handlers ::fennel-conditions/condition))
+               (. scope.handlers (.. :fennel-conditions/ type*))
+               (. scope.handlers :fennel-conditions/condition))
       handler {: handler :target scope.target}
       nil (find-primitive-handler condition-object type* scope.parent))))
 

@@ -23,6 +23,10 @@ runtime error: condition \"condition-object\" was thrown with the following argu
 stack traceback...
 ```
 
+Errors derive from both `:fennel-conditions/error` and
+`:fennel-conditions/condition`, and can be catched with any of these
+handlers.
+
 # Examples
 Error is thrown a Lua if not handled, thus can be caught with
 `pcall` (note that `error' is wrapped into anonymous function, because
@@ -65,6 +69,8 @@ no handler found.  This macro will interrupt function execution at the
 point where it was called, and no code after `signal' will be
 executed.
 
+Signals derive from `:fennel-conditions/condition`, and can be catched
+with thesis handler.
 
 # Examples
 Signal is ignored if not handled:
@@ -81,6 +87,10 @@ See `error' for examples of how to handle signals."
   "Raise `condition-object' as a warning.
 Warnings are not thrown as errors when no handler is bound but their
 message is printed to stderr.
+
+Warnings derive from both `:fennel-conditions/error` and
+`:fennel-conditions/condition`, and can be catched with any of these
+handlers.
 
 # Examples
 Warning is ignored if not handled:
@@ -132,7 +142,7 @@ Handle the `error' with `:use-value' restart:
 
 (fn continue []
   "Invoke the `continue' restart bound by `cerror' macro."
-  (invoke-restart ::fennel-conditions/continue))
+  (invoke-restart :fennel-conditions/continue))
 
 {:error error*
  : signal

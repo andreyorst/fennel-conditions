@@ -230,11 +230,11 @@ Convert `x` to positive value if it is negative:
                   condition-object)
   `(restart-case (let [cs# (require ,condition-system)]
                    (cs#.raise :error ,condition-object))
-     (::fennel-conditions/continue [] ,continue-description nil)))
+     (:fennel-conditions/continue [] ,continue-description nil)))
 
 (fn ignore-errors [...]
   `(handler-case (do ,...)
-     (::fennel-conditions/error [c#] (values nil c#))))
+     (:fennel-conditions/error [c#] (values nil c#))))
 
 (setmetatable
  {: restart-case
