@@ -108,21 +108,21 @@ Conditions with data produce extended messages:
       restarts))
 
 (fn take-action [{: name : restart : interactive? : docstring : args : target}]
-  (let [data (if interactive?
-                 (do (io.stderr:write
-                      "Provide inputs for "
-                      (if args
-                          (.. name " (args: [" (table.concat args " ") "])")
-                          name)
-                      " (^D to cancel)\n"
-                      "debugger:" name ">> ")
-                     (match (io.stdin:read "*l")
-                       input #(pack (restart (eval (.. "(values " input ")"))))
-                       _ (do (io.stderr:write "\n")
-                             (error :cancel))))
-                 #(pack (restart)))]
+  (let [restart (if interactive?
+                    (do (io.stderr:write
+                         "Provide inputs for "
+                         (if args
+                             (.. name " (args: [" (table.concat args " ") "])")
+                             name)
+                         " (^D to cancel)\n"
+                         "debugger:" name ">> ")
+                        (match (io.stdin:read "*l")
+                          input #(pack (restart (eval (.. "(values " input ")"))))
+                          _ (do (io.stderr:write "\n")
+                                (error :cancel))))
+                    #(pack (restart)))]
     {:state :restarted
-     : data
+     : restart
      : target}))
 
 (fn longest-name-lenght [length-fn restarts]
@@ -264,8 +264,7 @@ previous debug level."
 ;;; Private library API
 
 (local condition-system
-  {:compose-error-message
-   (metadata:set compose-error-message :fnl/docstring "See [utils.md#compose-error-message](utils.md#compose-error-message)")})
+  {:compose-error-message compose-error-message})
 
 
 ;;; Handlers
@@ -359,10 +358,10 @@ restart's return values."
   (let [args (pack ...)]
     (error (match (find-restart restart-name condition-system.restarts)
              {: restart : target} {:state :restarted
-                                   :data #(pack (restart (_unpack args)))
+                                   :restart #(pack (restart (_unpack args)))
                                    :target target}
              _ {:state :error
-                :message (.. "restart " restart-name " is not found")}))))
+                :message (.. "restart " (view restart-name) " is not found")}))))
 
 
 ;;; Conditions

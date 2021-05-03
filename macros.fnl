@@ -65,7 +65,7 @@ and `invoke-restart'."
        (tset cs# :handlers scope#.parent)
        (if ok# ((or table.unpack _G.unpack) res#)
            (match res#
-             {:state :restarted :target target# :data data#} ((or table.unpack _G.unpack) (data#))
+             {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.restart))
              {:state :handled} (cs#.raise res#.type (cs#.compose-error-message res#.condition-object))
              {:state :error :message msg#} (_G.error msg#)
              _# (_G.error res#))))))
@@ -116,7 +116,7 @@ Specifying two restarts for `:signal-condition`:
          (tset cs# :restarts scope#.parent)
          (if ok# ((or table.unpack _G.unpack) res#)
              (match res#
-               {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.data))
+               {:state :restarted :target target#} ((or table.unpack _G.unpack) (res#.restart))
                {:state :error :message msg#} (_G.error msg#)
                _# (_G.error res#)))))))
 
@@ -232,16 +232,21 @@ Convert `x` to positive value if it is negative:
                    (cs#.raise :error ,condition-object))
      (:continue [] ,continue-description nil)))
 
-
+(fn ignore-errors [...]
+  `(let [(ok# res#) (pcall #[(do ,...)])]
+     (if ok# ((or table.unpack _G.unpack) res#)
+         (match res#
+           {:state :handled :target target#} ((or table.unpack _G.unpack) res#.data)
+           {:state :handled} (_G.error res#)
+           _# nil))))
 
 (setmetatable
  {: restart-case
   : handler-bind
   : handler-case
   : cerror
-  : continue
-  : invoke-restart
-  : define-condition}
+  : define-condition
+  : ignore-errors}
  {:__index
   {:_DESCRIPTION "Condition system for Fennel language.
 

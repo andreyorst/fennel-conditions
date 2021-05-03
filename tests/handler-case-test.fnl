@@ -71,11 +71,11 @@
 
 (deftest condition-arguments
   (testing "passing arguments"
-           (define-condition err)
-           (assert-eq
-            "2 abc nil nil"
-            (handler-case (error (make-condition err 2 "abc" nil nil))
-              (err [_c a b c d] (string.format "%s %s %s %s" a b c d))))))
+    (define-condition err)
+    (assert-eq
+     "2 abc nil nil"
+     (handler-case (error (make-condition err 2 "abc" nil nil))
+       (err [_c a b c d] (string.format "%s %s %s %s" a b c d))))))
 
 (deftest unspecific-handler
   (testing "handling by concrete condition"

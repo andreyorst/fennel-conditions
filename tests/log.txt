@@ -1,0 +1,7 @@
+well formed log entry 1
+well formed log entry 2
+not a well formed log entry 3
+well formed log entry 4
+not a well formed log entry 5
+not a well formed log entry 6
+well formed log entry 7
