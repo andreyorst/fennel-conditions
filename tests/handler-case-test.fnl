@@ -9,8 +9,7 @@
 
 (deftest handling-unhandled
   (testing "handling error on top level"
-    (assert-not (pcall #(handler-case (error :error)
-                          (:info [] 10))))))
+    (assert-not (pcall #(handler-case (error :error) (:info [] 10))))))
 
 (deftest handling-primitive-types
   (testing "conditions as strings"
@@ -108,3 +107,10 @@
      27
      (handler-case (warn warning)
        (warning [] 27)))))
+
+(deftest lua-errors
+  (testing "handling lua errors"
+    (assert-is (handler-case (* 1 nil)
+                 (:fennel-conditions/error [] true)))
+    (assert-is (handler-case (* 1 nil)
+                 (:fennel-conditions/condition [] true)))))

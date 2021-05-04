@@ -91,7 +91,13 @@ Conditions with data produce extended messages:
         s (.. " with the following arguments: " s)
         _ "")))
 
-(local _unpack (or table.unpack _G.unpack))
+(fn _unpack [tbl]
+  "Automatically try to query `tbl` for it's size `n` and unpack whole
+thing."
+  (let [len (or tbl.n (length tbl))
+        unpack-fn (or table.unpack _G.unpack)]
+    (unpack-fn tbl 1 len)))
+
 (local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
 
 ;;; Debugger
@@ -106,29 +112,40 @@ Conditions with data produce extended messages:
         (flatten-restarts restarts scope.parent))
       restarts))
 
-(fn take-action [{: name : restart : interactive? : docstring : args : target}]
-  (let [restart (if interactive?
-                    (do (io.stderr:write
-                         "Provide inputs for "
-                         (if args
-                             (.. name " (args: [" (table.concat args " ") "])")
-                             name)
-                         " (^D to cancel)\n"
-                         "debugger:" name ">> ")
-                        (match (io.stdin:read "*l")
-                          input #(restart (eval (.. "(values " input ")")))
-                          _ (do (io.stderr:write "\n")
-                                (error :cancel))))
-                    restart)]
-    {:state :restarted
-     : restart
-     : target}))
+(fn take-action [{: name : restart : interactive? : args : target : builtin?}]
+  (if builtin?
+      (error {:builtin? true :data (restart)})
+      interactive?
+      (do (io.stderr:write
+           "Provide inputs for "
+           (if args
+               (.. name " (args: [" (table.concat args " ") "])")
+               name)
+           " (^D to cancel)\n"
+           "debugger:" name ">> ")
+          (match (io.stdin:read "*l")
+            input (let [args (pack (eval (.. "(values " input ")")))]
+                    {:state :restarted
+                     :restart #(restart (_unpack args))
+                     :target target})
+            _ (do (io.stderr:write "\n") nil)))
+      {:state :restarted
+       : restart
+       : target}))
+
+(fn builtin-names-transform [name]
+  (let [names {:fennel-conditions/continue :continue
+               :fennel-conditions/throw :throw
+               :fennel-conditions/cancel :cancel}]
+    (match (. names name)
+      nname nname
+      _ name)))
 
 (fn longest-name-lenght [length-fn restarts]
 ;;; Computes the longest restart name lenght
   (var longest 0)
   (each [_ {: name} (ipairs restarts)]
-    (let [len (length-fn name)]
+    (let [len (length-fn (builtin-names-transform name))]
       (when (> len longest)
         (set longest len))))
   longest)
@@ -142,7 +159,8 @@ Conditions with data produce extended messages:
         seen {}]
     (io.stderr:write "restarts (invokable by number or by name):\n")
     (each [i {: name : description} (ipairs restarts)]
-      (let [uniq-name (when (not (. seen name))
+      (let [name (builtin-names-transform name)
+            uniq-name (when (not (. seen name))
                         (tset seen name true)
                         name)
             pad (string.rep " " (- max-name-width (slength (or uniq-name ""))))
@@ -155,45 +173,48 @@ Conditions with data produce extended messages:
          (if description
              (description:gsub "\n" " ")
              name)
-         "\n")))
-    (io.stderr:write "debugger>> ")))
+         "\n")))))
 
-(fn restart-menu [invoke-debugger restarts scope level]
-;;; Reads user input, asserts if it is a number.  If not, asks input
-;;; again.  The last restart is always non-interactive internal
-;;; restart defined by the debugger.  Other restarts are considered
-;;; interactive.
-  (display-restart-prompt restarts)
+(fn restart-menu [invoke-debugger restarts scope prompt? level]
+;;; Interactive restart menu.  Restarts are displayed with the
+;;; following format: `number: [name] name-or-docstring`, where `name`
+;;; is a unique restart name in current menu.  Restarts can be called
+;;; either by their number or unique name.  If restart accepts
+;;; arguments, the second prompt will be displayed with a hint on what
+;;; arguments are accepted by the restart.  If error occurs during
+;;; input phase, second level of debugger is entered.
+  (when prompt?
+    (display-restart-prompt restarts))
+  (io.stderr:write "debugger>> ")
   (let [named {}
         _ (each [_ {: name &as restart} (ipairs restarts)]
-            (when (not (. named name))
-              (tset named name restart)))
-        n (length restarts)
-        input (io.stdin:read "*l")]
-    (match (tonumber input)
-      ;; "throw" restart
-      n ((. restarts n :restart))
-      ;; user-defined restarts
-      (where action (<= 1 action (- n 1)))
-      (match (pcall take-action (. restarts action))
-        (true res) (error res)
-        (false :cancel) (restart-menu invoke-debugger restarts scope level)
-        (false res) (match (invoke-debugger res scope (+ (or level 1) 1))
-                      {:cancel true} (restart-menu invoke-debugger restarts scope level)
-                      _ _))
-      nil
-      (match (. named input)
-        restart (match (pcall take-action restart)
-                  (true res) (error res)
-                  (false :cancel) (restart-menu invoke-debugger restarts scope level)
-                  (false res) (match (invoke-debugger res scope (+ (or level 1) 1))
-                                {:cancel true} (restart-menu invoke-debugger restarts scope level)
-                                _ _))
-        _ (do (when (= nil input)
-                (io.stderr:write "\n"))
-              (io.stderr:write "Wrong action. Use number from 1 to " n
-                               " or restart name.\n")
-              (restart-menu invoke-debugger restarts scope level))))))
+            (let [name (builtin-names-transform name)]
+              (when (not (. named name))
+                (tset named name restart))))
+        input (io.stdin:read "*l")
+        action (. restarts (tonumber input))
+        named-action (. named input)]
+    (if (or action named-action)
+        (match (pcall take-action (or action named-action))
+          (true nil) (restart-menu invoke-debugger restarts scope nil level) ; no user input provided
+          ;; Restart was found and no errors happened up to the restart call
+          (true restart) (error restart)
+          ;; some builtin restart was called
+          (false {:builtin? true : data})
+          (match data
+            ;; exiting the nested debugger session
+            {:cancel true} data
+            ;; debugger invoked when no handlers were found, throwing error will land on the top level
+            {:throw true : message} (_G.error message 3))
+          ;; error happened during argument providing (likely). Entering nested debug session
+          (false res) (match (invoke-debugger res scope (+ (or level 1) 1))
+                        {:cancel true} (restart-menu invoke-debugger restarts scope true level)
+                        _ _))
+        (do (if (= nil input)
+                (io.stderr:write "\n")
+                (io.stderr:write "Wrong action. Use number from 1 to " (length restarts)
+                                 " or restart name.\n"))
+            (restart-menu invoke-debugger restarts scope nil level)))))
 
 (fn invoke-debugger [condition-object scope level]
   "Invokes interactive debugger for given `condition-object'.  Accepts
@@ -238,12 +259,14 @@ previous debug level."
   (let [restarts (flatten-restarts [] scope)]
     (when level
       (table.insert restarts
-                    {:name "cancel"
+                    {:name :fennel-conditions/cancel
                      :restart #{:cancel true}
+                     :builtin? true
                      :description (.. "Return to level " (- level 1) " debugger")}))
     (table.insert restarts
-                  {:name "throw"
-                   :restart #(_G.error (compose-error-message condition-object) 2)
+                  {:name :fennel-conditions/throw
+                   :builtin? true
+                   :restart #{:throw true :message (compose-error-message condition-object)}
                    :description "Throw condition as a Lua error"})
     (io.stderr:write
      (if level
@@ -257,7 +280,7 @@ previous debug level."
            (build-arg-str ", " args))
        _ "")
      "\n")
-    (restart-menu invoke-debugger restarts scope level)))
+    (restart-menu invoke-debugger restarts scope true level)))
 
 
 ;;; Private library API
@@ -265,7 +288,7 @@ previous debug level."
 (local condition-system
   {:compose-error-message compose-error-message
    :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
-   :unpack (metadata:set _unpack :fnl/docstring "Portable `table.unpack` implementation.")})
+   :unpack _unpack})
 
 
 ;;; Handlers
@@ -330,7 +353,7 @@ values."
     {:state :handled
      :data (pack (handler condition-object (_unpack (get-data condition-object))))
      :target target
-     :condition condition-object
+     :condition-object condition-object
      :type type*}
     _ {:state :error
        :message (.. "no handler bound for condition: "
@@ -364,7 +387,7 @@ function."
   (let [args (pack ...)]
     (error (match (find-restart restart-name condition-system.restarts)
              {: restart : target} {:state :restarted
-                                   :restart #(restart (_unpack args 1 args.n))
+                                   :restart #(restart (_unpack args))
                                    :target target}
              _ {:state :error
                 :message (.. "restart " (view restart-name) " is not found")}) 2)))
