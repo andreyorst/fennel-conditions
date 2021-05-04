@@ -9,7 +9,7 @@ LUASOURCES = $(FNLSOURCES:.fnl=.lua)
 LUAEXECUTABLES ?= lua luajit
 FENNELDOC := $(shell command -v fenneldoc)
 
-.PHONY: build clean help doc
+.PHONY: build clean help doc $(LUAEXECUTABLES)
 
 build: $(LUASOURCES)
 
