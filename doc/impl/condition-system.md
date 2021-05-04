@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.0.5)
+# Condition-system.fnl (v0.0.6)
 
 **Table of contents**
 
@@ -88,7 +88,14 @@ Conditions with data produce extended messages:
 Portable `table.pack` implementation.
 
 ## `unpack`
-Portable `table.unpack` implementation.
+Function signature:
+
+```
+(unpack tbl)
+```
+
+Automatically try to query `tbl` for it's size `n` and unpack whole
+thing.
 
 
 ---

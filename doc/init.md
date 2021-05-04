@@ -1,4 +1,8 @@
-# Init.fnl (v0.0.5)
+# Init.fnl (v0.0.6)
+Condition system for the Fennel language.
+
+This module provides a set of functions for control transfer, that
+implement Common Lisp-inspired condition system for the Fennel language.
 
 **Table of contents**
 
@@ -18,38 +22,44 @@ Function signature:
 
 Raise `condition-object` as an error.
 
-This macro is meant to replace inbuilt [`error`](#error) function.  It has a bit
-different interface than conventional Lua [`error`](#error) function, as it
-accepts condition as it's first argument and arguments of that
-condition.  Similarly to [`signal`](#signal) and Lua's [`error`](#error), this macro will
-interrupt function execution where it was called, and no code after
-[`error`](#error) will be executed.  If no handler bound for raised condition,
-[`error`](#error) is promoted to Lua error with detailed message about
+This function is a drop-in replacement for the inbuilt `error`
+function.  Similarly to Lua's `error` accepting message as its first
+argument, this function accepts condition object as it's first
+argument.  Like Lua's [`error`](#error), this function will interrupt function
+execution where it was called, and no code after [`error`](#error) will be
+executed.  If no handler bound for raised condition, [`error`](#error) is
+promoted to Lua error with detailed message about the unhandled
 condition.
 
 ```
->> (error :condition-object 42)
-runtime error: condition "condition-object" was thrown with the following arguments: 42
+>> (error :condition-object)
+runtime error: condition condition-object was raised
 stack traceback...
 ```
 
-Errors derive from both `:fennel-conditions/error` and
-`:fennel-conditions/condition`, and can be catched with any of these
-handlers.
+Conditions support inheritance, and all conditions that are raised
+with the [`error`](#error) function automatically derive from both
+`:fennel-conditions/error` and `:fennel-conditions/condition`, and can
+be catched with any of these handlers.
+
+Condition can be any Lua object, and such conditions are handled by
+reference.  If more complex inheritance rules are required,
+`define-condition` and [`make-condition`](#make-condition) can be used.
 
 ### Examples
-Error is thrown a Lua if not handled, thus can be caught with
-`pcall` (note that [`error`](#error) is wrapped into anonymous function, because
-it is a macro):
+
+Condition is thrown as a Lua error if not handled, and can be caught
+with `pcall`:
 
 ``` fennel
 (assert-not (pcall error :error-condition))
 ```
 
-Errors can be handled with `handler-case`:
+Error conditions can be handled with `handler-case`:
 
 ``` fennel
 (define-condition error-condition)
+
 (fn handle-error []
   (handler-case (error (make-condition error-condition 42))
     (error-condition [_ x] x)))
@@ -62,11 +72,27 @@ Errors, signal, and warnings can be recovered with `handler-bind` and
 
 ``` fennel
 (define-condition error-condition)
-(assert-eq 42 (handler-bind [error-condition
-                             (fn [_ x]
-                               (invoke-restart :use-value (+ x 10)))]
-                (restart-case (error (make-condition error-condition 32))
-                  (:use-value [x] x))))
+
+(fn recover-from-error []
+  (handler-bind [error-condition
+                 (fn [_ x]
+                   (invoke-restart :use-value (+ x 10)))]
+    (restart-case (error (make-condition error-condition 32))
+      (:use-value [x] x))))
+
+(assert-eq 42 (recover-from-error))
+```
+
+Error conditions, and Lua errors can be handled with special
+`:fennel-conditions/error` and `:fennel-conditions/condition`
+handlers:
+
+``` fennel
+(assert-eq 27 (handler-case (error :some-error-condition)
+                (:fennel-conditions/condition [] 27)))
+
+(assert-eq 42 (handler-case (/ 1 nil)
+                (:fennel-conditions/error [] 42)))
 ```
 
 ## `warn`
@@ -80,19 +106,19 @@ Raise `condition-object` as a warning.
 Warnings are not thrown as errors when no handler is bound but their
 message is printed to stderr.
 
-Warnings derive from both `:fennel-conditions/error` and
+Warnings derive from both `:fennel-conditions/warning` and
 `:fennel-conditions/condition`, and can be catched with any of these
 handlers.
 
 ### Examples
+
 Warning is ignored if not handled:
 
 ``` fennel
 (assert-eq nil (warn :warn-condition))
 ```
 
-Warnings can be handled like any other conditions.
-See [`error`](#error) for examples of how to handle warnings.
+See [`error`](#error) for examples of how to handle conditions.
 
 ## `signal`
 Function signature:
@@ -103,24 +129,24 @@ Function signature:
 
 Raise `condition-object` as a signal.
 
-Raises given condition as a signal.  Signals can be handled
-with `handler-case` or `handler-bind`, and don't promote to errors if
-no handler found.  This macro will interrupt function execution at the
-point where it was called, and no code after [`signal`](#signal) will be
-executed.
+Raises given condition as a signal.  Signals can be handled with the
+same ways as [`error`](#error) conditions, but don't promote to errors if no
+handler was found.  This function transfers control flow to the
+handler at the point where it was called, and no code after [`signal`](#signal)
+will be executed.
 
 Signals derive from `:fennel-conditions/condition`, and can be catched
-with thesis handler.
+with this handler.
 
 ### Examples
+
 Signal is ignored if not handled:
 
 ``` fennel
-(assert-eq nil (signal :signal-condition 10))
+(assert-eq nil (signal :signal-condition))
 ```
 
-Signals can be handled like any other conditions.
-See [`error`](#error) for examples of how to handle signals.
+See [`error`](#error) for examples of how to handle conditions.
 
 ## `invoke-restart`
 Function signature:
@@ -130,14 +156,17 @@ Function signature:
 ```
 
 Invoke restart `restart-name` to handle a condition.
+
 Must be used only in handler functions defined with `handler-bind`.
 Transfers control flow to handler function when executed.
 
 ### Examples
+
 Handle the [`error`](#error) with `:use-value' restart:
 
 ``` fennel
 (define-condition error-condition)
+
 (fn handle-error []
   (handler-bind [error-condition
                  (fn [_c x]
@@ -150,6 +179,8 @@ Handle the [`error`](#error) with `:use-value' restart:
 (assert-eq 42 (handle-error))
 ```
 
+See [`error`](#error) for examples of how to handle conditions.
+
 ## `continue`
 Function signature:
 
@@ -157,7 +188,10 @@ Function signature:
 (continue)
 ```
 
-Invoke the [`continue`](#continue) restart bound by `cerror` macro.
+Invoke the [`continue`](#continue) restart bound automatically by `cerror` macro.
+
+Must be used only in handler functions defined with `handler-bind`.
+Transfers control flow to handler function when executed.
 
 ## `make-condition`
 Function signature:
@@ -167,7 +201,8 @@ Function signature:
 ```
 
 Derives condition from base `condition-object`.  Accepts any amount
-of additional arguments that are passed as arguments to handlers.
+of additional arguments that will be passed as arguments to handlers
+when handling this condition instance.
 
 
 ---

@@ -303,7 +303,7 @@ previous debug level."
 ;;; `scope` only.
   (when condition-object
     (match (. scope.handlers (?. condition-object :id :parent :id))
-      handler {: handler :target scope.target}
+      handler {: handler :target scope.target :handler-type scope.handler-type}
       nil (find-parent-handler condition-object.parent scope))))
 
 (fn find-object-handler [condition-object type* scope]
@@ -315,7 +315,7 @@ previous debug level."
     (match (or (. scope.handlers condition-object.id)
                (. scope.handlers (.. :fennel-conditions/ type*))
                (. scope.handlers :fennel-conditions/condition))
-      handler {: handler :target scope.target}
+      handler {: handler :target scope.target :handler-type scope.handler-type}
       nil (match (find-parent-handler condition-object scope)
             parent-handler parent-handler
             nil (find-object-handler condition-object type* scope.parent)))))
@@ -327,7 +327,7 @@ previous debug level."
     (match (or (. scope.handlers condition-object)
                (. scope.handlers (.. :fennel-conditions/ type*))
                (. scope.handlers :fennel-conditions/condition))
-      handler {: handler :target scope.target}
+      handler {: handler :target scope.target :handler-type scope.handler-type}
       nil (find-primitive-handler condition-object type* scope.parent))))
 
 (fn find-handler [condition-object type* scope]
@@ -349,9 +349,11 @@ calls the handler, and returns a table with `:state` set to
 `:handled`, and `:data` bound to a packed table of handler's return
 values."
   (match (find-handler condition-object type* condition-system.handlers)
-    {: handler : target}
+    {: handler : target : handler-type}
     {:state :handled
-     :data (pack (handler condition-object (_unpack (get-data condition-object))))
+     :data (match handler-type
+             :handler-case #(handler condition-object (_unpack (get-data condition-object)))
+             :handler-bind (pack (handler condition-object (_unpack (get-data condition-object)))))
      :target target
      :condition-object condition-object
      :type type*}

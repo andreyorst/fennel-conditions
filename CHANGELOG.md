@@ -1,3 +1,8 @@
+## fennel-conditions v0.0.6 (2021-05-04)
+
+- Handle Lua errors as conditions of types `fennel-conditions/error` and `fennel-conditions/condition`.
+- Add `unwind-protect` and change how `handler-bind` works to match `unwind-protect` semantics.
+
 ## fennel-conditions v0.0.5 (2021-05-04)
 
 - Better multiple-values handling.
