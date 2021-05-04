@@ -1,3 +1,7 @@
+## fennel-conditions v0.0.7 (2021-05-05)
+
+- Fix nested `handler-bind` behavior when declining restarts
+
 ## fennel-conditions v0.0.6 (2021-05-04)
 
 - Handle Lua errors as conditions of types `fennel-conditions/error` and `fennel-conditions/condition`.

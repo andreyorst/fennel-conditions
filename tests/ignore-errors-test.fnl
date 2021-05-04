@@ -23,4 +23,12 @@
         (:error [] 42))]))
 
   (testing "ignoring Lua errors"
-    (assert-eq nil (ignore-errors (* 1 nil)))))
+    (assert-eq nil (ignore-errors (* 1 nil))))
+
+  (testing "ignoring declined condition"
+    (let [res []]
+      (assert-eq
+       [nil :error]
+       [(ignore-errors (handler-bind [:error (fn [] (table.insert res "decline"))]
+                         (error :error)))])
+      (assert-eq ["decline"] res))))

@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.0.6)
+# Condition-system.fnl (v0.0.7)
 
 **Table of contents**
 
@@ -31,10 +31,10 @@ Raises `condition-object` as a condition of `condition-type`.
 Function signature:
 
 ```
-(handle condition-object type*)
+(handle condition-object type* ?scope)
 ```
 
-Handle the `condition-object` of `type*`.
+Handle the `condition-object` of `type*` and optional `?scope`.
 
 Finds the `condition-object` handler in the dynamic scope.  If found,
 calls the handler, and returns a table with `:state` set to

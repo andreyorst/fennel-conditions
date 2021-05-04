@@ -303,7 +303,7 @@ previous debug level."
 ;;; `scope` only.
   (when condition-object
     (match (. scope.handlers (?. condition-object :id :parent :id))
-      handler {: handler :target scope.target :handler-type scope.handler-type}
+      handler {: handler : scope}
       nil (find-parent-handler condition-object.parent scope))))
 
 (fn find-object-handler [condition-object type* scope]
@@ -315,7 +315,7 @@ previous debug level."
     (match (or (. scope.handlers condition-object.id)
                (. scope.handlers (.. :fennel-conditions/ type*))
                (. scope.handlers :fennel-conditions/condition))
-      handler {: handler :target scope.target :handler-type scope.handler-type}
+      handler {: handler : scope}
       nil (match (find-parent-handler condition-object scope)
             parent-handler parent-handler
             nil (find-object-handler condition-object type* scope.parent)))))
@@ -327,7 +327,7 @@ previous debug level."
     (match (or (. scope.handlers condition-object)
                (. scope.handlers (.. :fennel-conditions/ type*))
                (. scope.handlers :fennel-conditions/condition))
-      handler {: handler :target scope.target :handler-type scope.handler-type}
+      handler {: handler : scope}
       nil (find-primitive-handler condition-object type* scope.parent))))
 
 (fn find-handler [condition-object type* scope]
@@ -341,22 +341,27 @@ previous debug level."
       (find-object-handler condition-object type* scope)
       (find-primitive-handler condition-object type* scope)))
 
-(fn condition-system.handle [condition-object type*]
-  "Handle the `condition-object' of `type*'.
+(fn condition-system.handle [condition-object type* ?scope]
+  "Handle the `condition-object' of `type*' and optional `?scope`.
 
 Finds the `condition-object' handler in the dynamic scope.  If found,
 calls the handler, and returns a table with `:state` set to
 `:handled`, and `:data` bound to a packed table of handler's return
 values."
-  (match (find-handler condition-object type* condition-system.handlers)
-    {: handler : target : handler-type}
-    {:state :handled
-     :data (match handler-type
-             :handler-case #(handler condition-object (_unpack (get-data condition-object)))
-             :handler-bind (pack (handler condition-object (_unpack (get-data condition-object)))))
-     :target target
-     :condition-object condition-object
-     :type type*}
+  (match (find-handler condition-object type* (or ?scope condition-system.handlers))
+    {: handler : scope}
+    (match scope.handler-type
+      :handler-case {:state :handled
+                     :data #(handler condition-object (_unpack (get-data condition-object)))
+                     :target scope.target
+                     :condition-object condition-object
+                     :type type*}
+      :handler-bind (match (pcall #(handler condition-object (_unpack (get-data condition-object))))
+                      (true) (condition-system.handle condition-object type* scope.parent)
+                      (false _) (error _ 2))
+      _ {:state :error
+         :message (.. "wrong handler-type: " (view _))
+         :condition condition-object})
     _ {:state :error
        :message (.. "no handler bound for condition: "
                     (get-name condition-object))
@@ -404,7 +409,7 @@ function."
 ;;; be handled.
   (match (condition-system.handle condition-object (or type* :condition))
     (where (or {:state :handled &as res}
-               {:state :restarted &as res})) (error res)
+               {:state :restarted &as res})) (error res 2)
     _ nil))
 
 (fn raise-warning [condition-object]
