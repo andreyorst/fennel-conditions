@@ -1,3 +1,7 @@
+## fennel-conditions v0.0.8 (2021-05-06)
+
+- Fix nested `handler-bind` behavior when raising condition inside the handler
+
 ## fennel-conditions v0.0.7 (2021-05-05)
 
 - Fix nested `handler-bind` behavior when declining restarts
