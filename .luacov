@@ -1,0 +1,10 @@
+-- -*- mode: lua; -*-
+-- setting default behaviors for luacov. For documentation on the options,
+-- see https://keplerproject.github.io/luacov/doc/modules/luacov.defaults.html
+
+return {
+   exclude = {"macros.fnl", ".cache/*"},
+   runreport = true,
+   statsfile = "luacov.stats";
+   reportfile = "luacov.report";
+}
