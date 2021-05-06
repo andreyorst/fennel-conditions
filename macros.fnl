@@ -48,33 +48,34 @@ Handlers executed but their return values are not used:
 
 To provide a return value use either `handler-case' or `restart-case'
 and `invoke-restart'."
-  (assert-compile (= (% (length binding-vec) 2) 0)
-                  "expected even number of signal/handler bindings"
-                  binding-vec)
-  ;; check each handler to be a symbol or a function definition
-  (for [i 2 (length binding-vec) 2]
-    (let [handler (. binding-vec i)]
-      (assert-compile (or (sym? handler) (function-form? handler))
-                      "handler must be a function"
-                      handler)))
-  `(let [target# {}
-         cs# (require ,condition-system)
-         binding-vec# ,binding-vec
-         orig-scope# cs#.handlers]
-     (for [i# (length ,binding-vec) 1 -2]
-       (let [scope# {:parent cs#.handlers
-                     :target target#
-                     :handler-type :handler-bind
-                     :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
-         (tset cs# :handlers scope#)))
-     (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
-       (tset cs# :current-scope nil)
-       (tset cs# :handlers orig-scope#)
-       (if ok# (cs#.unpack res#)
-           (match res#
-             {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
-             {:state :error :message msg#} (_G.error msg#)
-             _# (_G.error res#))))))
+  (let [binding-len (length binding-vec)]
+    (assert-compile (= (% binding-len 2) 0)
+                    "expected even number of signal/handler bindings"
+                    binding-vec)
+    ;; check each handler to be a symbol or a function definition
+    (for [i 2 binding-len 2]
+      (let [handler (. binding-vec i)]
+        (assert-compile (or (sym? handler) (function-form? handler))
+                        "handler must be a function"
+                        handler)))
+    `(let [target# {}
+           cs# (require ,condition-system)
+           binding-vec# ,binding-vec
+           orig-scope# cs#.handlers]
+       (for [i# ,binding-len 1 -2]
+         (let [scope# {:parent cs#.handlers
+                       :target target#
+                       :handler-type :handler-bind
+                       :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
+           (tset cs# :handlers scope#)))
+       (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
+         (tset cs# :current-scope nil)
+         (tset cs# :handlers orig-scope#)
+         (if ok# (cs#.unpack res#)
+             (match res#
+               {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
+               {:state :error :message msg#} (_G.error msg#)
+               _# (_G.error res#)))))))
 
 (fn restart-case [expr ...]
   "Resumable condition restart point.
@@ -100,26 +101,31 @@ Specifying two restarts for `:signal-condition`:
     (assert-compile (list? restart) "restarts must be defined as lists" restart)
     (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
     (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
-  (let [restarts {:restarts (collect [n [restart & fn-tail] (ipairs [...])]
-                              (let [[args descr body] fn-tail]
-                                (values restart {:restart (list 'fn (unpack fn-tail))
-                                                 :interactive? (not= nil (next args))
-                                                 :name restart
-                                                 : n
-                                                 :description (when (and (= :string (type descr))
-                                                                         (not= nil body))
-                                                                descr)
-                                                 :args (when (not= nil (next args))
-                                                         (icollect [_ v (ipairs args)]
-                                                           (view v {:one-line? true})))})))}]
+  (let [restarts
+        (icollect [n [restart & fn-tail] (ipairs [...])]
+          (let [[args descr body] fn-tail]
+            [restart {:restart (list 'fn (unpack fn-tail))
+                      :interactive? (not= nil (next args))
+                      :name restart
+                      : n
+                      :description (when (and (= :string (type descr))
+                                              (not= nil body))
+                                     descr)
+                      :args (when (not= nil (next args))
+                              (icollect [_ v (ipairs args)]
+                                (view v {:one-line? true})))}]))]
     `(let [target# {}
            cs# (require ,condition-system)
-           scope# ,restarts]
-       (tset scope# :parent cs#.restarts)
-       (tset scope# :target target#)
-       (tset cs# :restarts scope#)
+           restarts# ,restarts
+           orig-scope# cs#.restarts]
+       (for [i# (length ,restarts) 1 -1]
+         (let [[name# restart#] (. restarts# i#)
+               scope# {:parent cs#.restarts
+                       :target target#
+                       :restarts {name# restart#}}]
+           (tset cs# :restarts scope#)))
        (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (tset cs# :restarts scope#.parent)
+         (tset cs# :restarts orig-scope#)
          (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
