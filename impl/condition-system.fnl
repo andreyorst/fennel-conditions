@@ -287,6 +287,7 @@ previous debug level."
 
 (local condition-system
   {:compose-error-message compose-error-message
+   :current-target nil
    :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
    :unpack _unpack})
 
@@ -350,18 +351,18 @@ calls the handler, and returns a table with `:state` set to
 values."
   (match (find-handler condition-object type* (or ?scope condition-system.handlers))
     {: handler : scope}
-    (match scope.handler-type
-      :handler-case {:state :handled
-                     :data #(handler condition-object (_unpack (get-data condition-object)))
-                     :target scope.target
-                     :condition-object condition-object
-                     :type type*}
-      :handler-bind (match (pcall #(handler condition-object (_unpack (get-data condition-object))))
-                      (true) (condition-system.handle condition-object type* scope.parent)
-                      (false _) (error _ 2))
-      _ {:state :error
-         :message (.. "wrong handler-type: " (view _))
-         :condition condition-object})
+    (do (set condition-system.current-target scope.target)
+      (match scope.handler-type
+        :handler-case {:state :handled
+                       :data #(handler condition-object (_unpack (get-data condition-object)))
+                       :target scope.target
+                       :condition-object condition-object
+                       :type type*}
+        :handler-bind (do (handler condition-object (_unpack (get-data condition-object)))
+                          (condition-system.handle condition-object type* scope.parent))
+        _ {:state :error
+           :message (.. "wrong handler-type: " (view _))
+           :condition condition-object}))
     _ {:state :error
        :message (.. "no handler bound for condition: "
                     (get-name condition-object))
@@ -431,9 +432,20 @@ function."
             (invoke-debugger condition-object condition-system.restarts)
             (error (compose-error-message condition-object) 2))))
 
+
+
 (fn condition-system.raise [condition-type condition-object]
   "Raises `condition-object' as a condition of `condition-type'.
 `condition-object' must not be `nil'."
+  (match condition-system.current-target
+    target (do (var scope condition-system.handlers)
+               (while (not= target scope.target)
+                 (set scope scope.parent))
+               (when scope.parent
+                 (while (= target scope.target)
+                   (set scope scope.parent)))
+               (set condition-system.handlers scope)))
+  (set condition-system.raised true)
   (assert (not= nil condition-object)
           "condition must not be nil")
   (match condition-type

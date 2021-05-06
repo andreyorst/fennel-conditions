@@ -59,13 +59,17 @@ and `invoke-restart'."
                       handler)))
   `(let [target# {}
          cs# (require ,condition-system)
-         scope# {:handlers ,(seq-to-table binding-vec)}]
-     (tset scope# :parent cs#.handlers)
-     (tset scope# :target target#)
-     (tset scope# :handler-type :handler-bind)
-     (tset cs# :handlers scope#)
+         binding-vec# ,binding-vec
+         orig-scope# cs#.handlers]
+     (for [i# (length ,binding-vec) 1 -2]
+       (let [scope# {:parent cs#.handlers
+                     :target target#
+                     :handler-type :handler-bind
+                     :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
+         (tset cs# :handlers scope#)))
      (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
-       (tset cs# :handlers scope#.parent)
+       (tset cs# :current-target nil)
+       (tset cs# :handlers orig-scope#)
        (if ok# (cs#.unpack res#)
            (match res#
              {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
@@ -116,6 +120,7 @@ Specifying two restarts for `:signal-condition`:
        (tset cs# :restarts scope#)
        (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :restarts scope#.parent)
+         (tset cs# :current-target nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :restarted :target target#} (res#.restart)
@@ -145,20 +150,27 @@ Handling `error' condition:
 (assert-eq 42 (handler-case (error :error-condition)
                 (:error-condition [] 42)))
 ```"
-  (each [_ handler (ipairs [...])]
-    (assert-compile (list? handler) "handlers must be defined as lists" handler)
-    (assert-compile (sequence? (. handler 2)) "expected parameter table" handler))
-  (let [handlers {:handlers (collect [_ [handler & fn-tail] (ipairs [...])]
-                              (values handler (list 'fn (unpack fn-tail))))}]
+
+  (let [handlers []]
+    (each [_ handler (ipairs [...])]
+      (assert-compile (list? handler) "handlers must be defined as lists" handler)
+      (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
+      (table.insert handlers (. handler 1))
+      (table.insert handlers (list 'fn (unpack handler 2))))
     `(let [target# {}
            cs# (require ,condition-system)
-           scope# ,handlers]
-       (tset scope# :parent cs#.handlers)
-       (tset scope# :target target#)
-       (tset scope# :handler-type :handler-case)
-       (tset cs# :handlers scope#)
-       (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (tset cs# :handlers scope#.parent)
+           handlers# ,handlers
+           orig-scope# cs#.handlers]
+       (for [i# (length handlers#) 1 -2]
+         (let [scope# {:parent cs#.handlers
+                       :target target#
+                       :handler-type :handler-case
+                       :handlers {(. handlers# (- i# 1)) (. handlers# i#)}}]
+           (tset cs# :handlers scope#)))
+       (let [scope# cs#.handlers
+             (ok# res#) (pcall #(cs#.pack (do ,expr)))]
+         (tset cs# :handlers orig-scope#)
+         (tset cs# :current-target nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (res#.data)

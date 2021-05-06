@@ -7,6 +7,12 @@
     (define-condition err)
     (assert-eq 42 (handler-case (error err) (err [] 42)))))
 
+(deftest handler-order
+  (testing "first handler called first"
+    (assert-eq 42 (handler-case (error :err)
+                    (:err [] 42)
+                    (:err [] 27)))))
+
 (deftest handling-unhandled
   (testing "handling error on top level"
     (assert-not (pcall #(handler-case (error :error) (:info [] 10))))))
@@ -114,3 +120,18 @@
                  (:fennel-conditions/error [] true)))
     (assert-is (handler-case (* 1 nil)
                  (:fennel-conditions/condition [] true)))))
+
+(deftest rethrowing
+  (testing "throwing condition from handler"
+    (let [res []]
+      (assert-eq :ok (handler-case (handler-case (error :err)
+                                     (:err [c] (table.insert res "throw") (error c)))
+                       (:err [c] (table.insert res "catch") :ok)))
+      (assert-eq res ["throw" "catch"])))
+
+  (testing "Lua error in handler"
+    (let [res []]
+      (assert-eq :ok (handler-case (handler-case (error :err)
+                                     (:err [c] (table.insert res "error") (* 1 nil)))
+                       (:fennel-conditions/error [c] (table.insert res "catch") :ok)))
+      (assert-eq res ["error" "catch"]))))

@@ -23,7 +23,7 @@ clean:
 
 test: $(FNLTESTS)
 	@echo "Testing on" $$($(LUA) -v) >&2
-	@$(foreach test,$?,$(FENNEL) --lua $(LUA) --metadata $(test) || exit;)
+	@$(foreach test,$?,$(FENNEL) --lua $(LUA) --metadata --correlate $(test) || exit;)
 ifdef FENNELDOC
 	@fenneldoc --mode check $(FNLDOCS) || exit
 else
