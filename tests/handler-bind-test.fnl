@@ -68,5 +68,19 @@
       (assert-eq ["first"
                   "third"
                   "restart"]
-                 res)))
-  )
+                 res))
+
+    (let [res []]
+      (assert-eq :ok (handler-bind [:condition (fn [] (table.insert res 9) (invoke-restart :r))]
+                       (handler-bind [:condition (fn [] (table.insert res 6))
+                                      :condition (fn [c] (table.insert res 7) (error c))
+                                      :condition (fn [] (table.insert res 8))]
+                         (handler-bind [:condition (fn [] (table.insert res 1))
+                                        :condition (fn [] (table.insert res 2))
+                                        :condition (fn [] (table.insert res 3))
+                                        :condition (fn [] (table.insert res 4))
+                                        :condition (fn [] (table.insert res 5))]
+                           (restart-case (error :condition)
+                             (:r [] (table.insert res 10) :ok))))))
+      (assert-eq [1 2 3 4 5 6 7 9 10]
+                 res))))

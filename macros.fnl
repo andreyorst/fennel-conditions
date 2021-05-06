@@ -68,7 +68,7 @@ and `invoke-restart'."
                      :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
          (tset cs# :handlers scope#)))
      (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
-       (tset cs# :current-target nil)
+       (tset cs# :current-scope nil)
        (tset cs# :handlers orig-scope#)
        (if ok# (cs#.unpack res#)
            (match res#
@@ -120,7 +120,7 @@ Specifying two restarts for `:signal-condition`:
        (tset cs# :restarts scope#)
        (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :restarts scope#.parent)
-         (tset cs# :current-target nil)
+         (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :restarted :target target#} (res#.restart)
@@ -170,7 +170,7 @@ Handling `error' condition:
        (let [scope# cs#.handlers
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :handlers orig-scope#)
-         (tset cs# :current-target nil)
+         (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (res#.data)
