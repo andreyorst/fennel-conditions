@@ -3,8 +3,14 @@
 -- see https://keplerproject.github.io/luacov/doc/modules/luacov.defaults.html
 
 return {
-   exclude = {"macros.fnl", ".cache/*"},
-   runreport = true,
-   statsfile = "luacov.stats";
-   reportfile = "luacov.report";
+  exclude = {"macros.fnl", ".cache/*", "tests/*", "**/luarocks/*", "**/.luarocks/*"},
+  runreport = true,
+  statsfile = "luacov.stats";
+  reportfile = "luacov.report";
+  cobertura = {
+    filenameparser = function(filename)
+      local name = filename:gsub("%.lua$", ".fnl")
+      return name
+    end,
+  },
 }

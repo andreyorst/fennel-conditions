@@ -88,8 +88,7 @@ Conditions with data produce extended messages:
       " was raised"
       (match (build-arg-str ", " (get-data condition-object))
         "" ""
-        s (.. " with the following arguments: " s)
-        _ "")))
+        s (.. " with the following arguments: " s))))
 
 (fn _unpack [tbl]
   "Automatically try to query `tbl` for it's size `n` and unpack whole
@@ -105,23 +104,19 @@ thing."
 (fn flatten-restarts [restarts scope]
   (if scope
       (let [ordered []]
-        (each [name {: n &as restart} (pairs scope.restarts)]
-          (tset ordered n (doto restart (tset :target scope.target))))
-        (each [_ restart (ipairs ordered)]
-          (table.insert restarts restart))
+        (match scope.restart
+          restart (table.insert restarts
+                                (doto restart (tset :target scope.target))))
         (flatten-restarts restarts scope.parent))
       restarts))
 
-(fn take-action [{: name : restart : interactive? : args : target : builtin?}]
+(fn take-action [{: name : restart : args : target : builtin?}]
   (if builtin?
       (error {:builtin? true :data (restart)})
-      interactive?
+      args
       (do (io.stderr:write
-           "Provide inputs for "
-           (if args
-               (.. name " (args: [" (table.concat args " ") "])")
-               name)
-           " (^D to cancel)\n"
+           "Provide inputs for " name
+           " (args: [" (table.concat args " ") "]) (^D to cancel)\n"
            "debugger:" name ">> ")
           (match (io.stdin:read "*l")
             input (let [args (pack (eval (.. "(values " input ")")))]
@@ -289,7 +284,8 @@ previous debug level."
   {:compose-error-message compose-error-message
    :current-target nil
    :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
-   :unpack _unpack})
+   :unpack _unpack
+   :invoke-debugger invoke-debugger})
 
 
 ;;; Handlers
@@ -372,7 +368,7 @@ values."
 ;;; Restarts
 
 (set condition-system.restarts
-     (metadata:set {:restarts []
+     (metadata:set {:restart nil
                     :parent nil}
                    :fnl/docstring "Dynamic scope for restarts."))
 
@@ -381,9 +377,10 @@ values."
 ;;; restart object, by setting it's `:target` field to the `scope`
 ;;; target.
   (when scope
-    (match (?. scope :restarts restart-name)
-      restart (doto restart (tset :target scope.target))
-      nil (find-restart restart-name scope.parent))))
+    (match (?. scope :restart)
+      (where restart (= restart.name restart-name))
+      (doto restart (tset :target scope.target))
+      _ (find-restart restart-name scope.parent))))
 
 (fn condition-system.invoke-restart [restart-name ...]
   "Searches for `restart-name' in the dynamic scope and invokes the
@@ -410,8 +407,7 @@ function."
 ;;; be handled.
   (match (condition-system.handle condition-object (or type* :condition))
     (where (or {:state :handled &as res}
-               {:state :restarted &as res})) (error res 2)
-    _ nil))
+               {:state :restarted &as res})) (error res 2)))
 
 (fn raise-warning [condition-object]
 ;;; Raises `condition-object' as a warning.  If condition was not

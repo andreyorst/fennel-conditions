@@ -1,6 +1,6 @@
-(local {: raise : invoke-restart : pack} ; Constructing relative path
-  (require (if (and ... (not= ... :init))
-               (.. ... :.impl.condition-system)
+(local {: raise : invoke-restart : pack : invoke-debugger &as cs}
+  ;; Constructing relative path
+  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
                :impl.condition-system)))
 
 (fn error* [condition-object]
@@ -165,6 +165,9 @@ Handle the `error' with `:use-value' restart:
 See `error' for examples of how to handle conditions."
   (invoke-restart restart-name ...))
 
+(fn invoke-debugger* [condition-object]
+  "Invokes debugger for given `condition-object` to call restarts from the interactive menu."
+  (invoke-debugger condition-object cs.restarts))
 
 (fn continue []
   "Invoke the `continue' restart bound automatically by `cerror' macro.
@@ -179,6 +182,7 @@ Transfers control flow to handler function when executed."
   : warn
   : make-condition
   :invoke-restart invoke-restart*
+  :invoke-debugger invoke-debugger*
   : continue}
  {:__index
   {:_DESCRIPTION "Condition system for the Fennel language.

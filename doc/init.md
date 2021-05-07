@@ -11,6 +11,7 @@ implement Common Lisp-inspired condition system for the Fennel language.
 - [`signal`](#signal)
 - [`invoke-restart`](#invoke-restart)
 - [`continue`](#continue)
+- [`invoke-debugger`](#invoke-debugger)
 - [`make-condition`](#make-condition)
 
 ## `error`
@@ -192,6 +193,15 @@ Invoke the [`continue`](#continue) restart bound automatically by `cerror` macro
 
 Must be used only in handler functions defined with `handler-bind`.
 Transfers control flow to handler function when executed.
+
+## `invoke-debugger`
+Function signature:
+
+```
+(invoke-debugger condition-object)
+```
+
+Invokes debugger for given `condition-object` to call restarts from the interactive menu.
 
 ## `make-condition`
 Function signature:

@@ -5,18 +5,18 @@
 (deftest invoking-restarts
   (testing "control transfered to correct restart-case"
     (handler-bind [:condition (fn [] (invoke-restart :restart))]
-      (assert-eq 42 (restart-case (error :condition)
-                      (:restart [] 42))))
+      (assert-eq :ok (restart-case (error :condition)
+                       (:restart [] :ok))))
     (handler-bind [:condition (fn [] (invoke-restart :outer))]
-      (assert-eq 27 (restart-case
-                        (restart-case (error :condition)
-                          (:inner [] 42))
-                      (:outer [] 27))))
+      (assert-eq :ok (restart-case
+                         (restart-case (error :condition)
+                           (:inner [] :not-ok))
+                       (:outer [] :ok))))
     (handler-bind [:condition (fn [] (invoke-restart :inner))]
-      (assert-eq 42 (restart-case
-                        (restart-case (error :condition)
-                          (:inner [] 42))
-                      (:outer [] 27)))))
+      (assert-eq :ok (restart-case
+                         (restart-case (error :condition)
+                           (:inner [] :ok))
+                       (:outer [] :not-ok)))))
 
   (testing "decline to handle the condition"
     (assert-not (pcall #(handler-bind [:condition (fn [] :nope)]

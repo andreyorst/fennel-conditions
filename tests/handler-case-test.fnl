@@ -2,16 +2,25 @@
 (local {: error : warn : signal : make-condition} (require :init))
 (require-macros :macros)
 
+(macro with-no-stderr [expr]
+  `(let [stderr-mt# (getmetatable io.stderr)
+         write# stderr-mt#.write]
+     (tset stderr-mt# :write #"")
+     (let [res# (table.pack ,expr)]
+       (tset stderr-mt# :write write#)
+       (table.unpack res# 1 res#.n))))
+
+
 (deftest handling-base
   (testing "throwing condtion"
     (define-condition err)
-    (assert-eq 42 (handler-case (error err) (err [] 42)))))
+    (assert-eq :ok (handler-case (error err) (err [] :ok)))))
 
 (deftest handler-order
   (testing "first handler called first"
-    (assert-eq 42 (handler-case (error :err)
-                    (:err [] 42)
-                    (:err [] 27)))))
+    (assert-eq :ok (handler-case (error :err)
+                     (:err [] :ok)
+                     (:err [] :bad)))))
 
 (deftest handling-unhandled
   (testing "handling error on top level"
@@ -19,16 +28,16 @@
 
 (deftest handling-primitive-types
   (testing "conditions as strings"
-    (assert-eq 10 (handler-case (error :error)
-                    (:error [] 10)))
+    (assert-eq :ok (handler-case (error :error)
+                     (:error [] :ok)))
 
     (assert-eq 27 (handler-case (+ 10 (handler-case (error :error)
                                         (:error [] 17)))
-                    (:error [] 42)))
+                    (:error [] :bad)))
 
-    (assert-eq 42 (handler-case (+ 10 (handler-case (error :error)
-                                        (:info [] 17)))
-                    (:error [] 42)))))
+    (assert-eq :ok (handler-case (+ 10 (handler-case (error :error)
+                                         (:info [] 17)))
+                     (:error [] :ok)))))
 
 (deftest nested-handler-cases
   (define-condition err)
@@ -36,43 +45,51 @@
 
   (testing "outer handler is used"
     (assert-eq
-     42
+     :ok
      (handler-case
          (handler-case (error (make-condition err))
-           (info [] 27))
-       (err [] 42))))
+           (info [] :bad))
+       (err [] :ok))))
 
   (testing "inner handler is used"
     (assert-eq
      42
      (handler-case (+ 10 (handler-case (error (make-condition info))
                            (info [] 32)))
-       (err [] (print "outer handler")))))
+       (err [] :bad))))
 
   (testing "inheritance"
     (define-condition warning :parent err)
-    (assert-eq
-     42
-     (handler-case
-         (handler-case (error (make-condition warning))
-           (info [] 27))
-       (err [] 42)))
-    (assert-eq
-     27
-     (handler-case
-         (handler-case (error (make-condition info))
-           (info [] 27))
-       (err [] 42)))
-    (assert-eq
-     27
-     (handler-case (error (make-condition info))
-       (info [] 27)
-       (err [] 42)))
-    (assert-eq
-     42
-     (handler-case (error (make-condition warning))
-       (info [] 27)
-       (err [] 42)))))
+    (assert-eq :ok
+               (handler-case
+                   (handler-case (error (make-condition warning))
+                     (info [] :bad))
+                 (err [] :ok)))
+    (assert-eq :ok
+               (handler-case
+                   (handler-case (error (make-condition info))
+                     (info [] :ok))
+                 (err [] :bad)))
+    (assert-eq :ok
+               (handler-case (error (make-condition info))
+                 (info [] :ok)
+                 (err [] :bad)))
+    (assert-eq :ok
+               (handler-case (error (make-condition warning))
+                 (info [] :bad)
+                 (err [] :ok))))
+  (testing "nested inheritance")
+  (define-condition warning :parent err)
+  (define-condition simple-warning :parent warning)
+  (define-condition very-simple-warning :parent simple-warning)
+  (assert-eq :ok
+             (handler-case (error very-simple-warning)
+               (info [] :bad)
+               (err [] :ok)))
+  (assert-eq :ok
+             (handler-case (error (make-condition very-simple-warning))
+               (info [] :bad)
+               (err [] :ok))))
 
 (deftest condition-arguments
   (testing "passing arguments"
@@ -87,9 +104,9 @@
     (define-condition err)
     (local err1 (make-condition err))
     (assert-eq
-     42
+     :ok
      (handler-case (error err1)
-       (err [] 42)))))
+       (err [] :ok)))))
 
 (deftest non-error-conditions
   (testing "Signals and warnings do not transfer control flow if unhandled"
@@ -97,22 +114,23 @@
     (define-condition warning)
     (assert-not
      (handler-case (signal info)
-       (warning [] 42)))
+       (warning [] :bad)))
     (assert-not
-     (handler-case (warn warning)
-       (info [] 42))))
+     (with-no-stderr
+      (handler-case (warn warning)
+        (info [] :bad)))))
 
   (testing "Signals and warnings transfer control flow if handled"
     (define-condition info)
     (define-condition warning)
     (assert-eq
-     42
+     :ok
      (handler-case (signal info)
-       (info [] 42)))
+       (info [] :ok)))
     (assert-eq
-     27
+     :ok
      (handler-case (warn warning)
-       (warning [] 27)))))
+       (warning [] :ok)))))
 
 (deftest lua-errors
   (testing "handling lua errors"

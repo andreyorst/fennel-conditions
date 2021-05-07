@@ -102,27 +102,25 @@ Specifying two restarts for `:signal-condition`:
     (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
     (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
   (let [restarts
-        (icollect [n [restart & fn-tail] (ipairs [...])]
+        (icollect [_ [restart & fn-tail] (ipairs [...])]
           (let [[args descr body] fn-tail]
-            [restart {:restart (list 'fn (unpack fn-tail))
-                      :interactive? (not= nil (next args))
-                      :name restart
-                      : n
-                      :description (when (and (= :string (type descr))
-                                              (not= nil body))
-                                     descr)
-                      :args (when (not= nil (next args))
-                              (icollect [_ v (ipairs args)]
-                                (view v {:one-line? true})))}]))]
+            {:restart (list 'fn (unpack fn-tail))
+             :name restart
+             :description (when (and (= :string (type descr))
+                                     (not= nil body))
+                            descr)
+             :args (when (not= nil (next args))
+                     (icollect [_ v (ipairs args)]
+                       (view v {:one-line? true})))}))
+        restart-len (length restarts)]
     `(let [target# {}
            cs# (require ,condition-system)
            restarts# ,restarts
            orig-scope# cs#.restarts]
-       (for [i# (length ,restarts) 1 -1]
-         (let [[name# restart#] (. restarts# i#)
-               scope# {:parent cs#.restarts
+       (for [i# ,restart-len 1 -1]
+         (let [scope# {:parent cs#.restarts
                        :target target#
-                       :restarts {name# restart#}}]
+                       :restart (. restarts# i#)}]
            (tset cs# :restarts scope#)))
        (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :restarts orig-scope#)

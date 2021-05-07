@@ -5,22 +5,24 @@
 (deftest ignore-errors-test
   (testing "ignore-errors returns normally"
     (assert-eq nil (ignore-errors))
-    (assert-eq 42 (ignore-errors 42))
-    (assert-eq 42 (ignore-errors 27 42)))
+    (assert-eq :ok (ignore-errors :ok))
+    (assert-eq :ok (ignore-errors :bad :ok))
+    (assert-eq 5 (select :# (ignore-errors (values 1 1 1 1 1))))
+    (assert-is (match (ignore-errors (values 5 1 4 2 3))
+                 (5 1 4 2 3) true)))
 
   (testing "signal thrown through the ignore-case"
     (assert-eq
-     42
+     :ok
      (handler-case
          (ignore-errors (signal :signal))
-       (:signal [] 42))))
+       (:signal [] :ok))))
 
   (testing "error condition returned"
     (assert-eq
      [nil :error]
-     [(handler-case
-          (ignore-errors (error :error))
-        (:error [] 42))]))
+     [(handler-case (ignore-errors (error :error))
+        (:error [] :bad))]))
 
   (testing "ignoring Lua errors"
     (assert-eq nil (ignore-errors (* 1 nil))))

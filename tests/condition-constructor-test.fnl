@@ -29,3 +29,15 @@
           err2 (make-condition err 1 2 3 4)]
       (assert-eq {:data {1 1 :n 1} :id err :type :condition} err1)
       (assert-eq {:data {1 1 2 2 3 3 4 4 :n 4} :id err :type :condition} err2))))
+
+(deftest unhandled-condition-message
+  (testing "primitive message"
+    (let [(_ msg) (pcall error :primitive-condition)]
+      (assert-is (msg:match "condition primitive%-condition was raised$"))))
+
+  (testing "object message"
+    (define-condition err)
+    (let [(_ msg) (pcall error (make-condition err :a nil 42 {:b :c} [:d]))]
+      (assert-is
+       (msg:match "condition err was raised with the following arguments: \"a\", nil, 42, {:b \"c\"}, %[\"d\"%]$"))))
+  )

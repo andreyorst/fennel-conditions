@@ -15,9 +15,9 @@
   (testing "first restart is called"
     (assert-eq :ok (restart-case (invoke-restart :r)
                      (:r [] :ok)
-                     (:r [] :not-ok)))
+                     (:r [] :bad)))
 
     (assert-eq :ok (restart-case (invoke-restart :r)
-                     (:f [] :not-ok)
+                     (:f [] :bad)
                      (:r [] :ok)
-                     (:r [] :not-ok)))))
+                     (:r [] :bad)))))

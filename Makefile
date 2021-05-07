@@ -24,7 +24,7 @@ clean:
 	rm -f $(LUASOURCES) $(LUATESTS)
 
 distclean: clean
-	rm -f luacov*
+	rm -rf luacov* coverage
 
 test: $(FNLTESTS)
 	@echo "Testing on" $$($(LUA) -v) >&2
@@ -42,15 +42,18 @@ endif
 testall: $(LUAEXECUTABLES)
 	@$(foreach lua,$?,LUA=$(lua) make test || exit;)
 
-luacov: COMPILEFLAGS = --no-metadata
-luacov: build $(LUATESTS)
+luacov: COMPILEFLAGS = --no-metadata --correlate
+luacov: distclean build $(LUATESTS)
 	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
 	luacov
+	mkdir -p coverage
+	luacov-cobertura -o coverage/cobertura-coverage.xml
 
-luacov-console: luacov
-	@$(foreach test, $(LUATESTS), mv $(test) $(test).tmp;)
+luacov-console: COMPILEFLAGS = --no-metadata
+luacov-console: distclean build $(LUATESTS)
+	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
+	luacov
 	luacov-console .
-	@$(foreach test, $(LUATESTS), mv $(test).tmp $(test);)
 
 doc:
 ifdef FENNELDOC

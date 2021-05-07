@@ -7,22 +7,22 @@
     (handler-bind [:condition (fn [] (continue))]
       (assert-not (restart-case
                       (restart-case (cerror "nil" :condition)
-                        (:inner [] 42))
-                    (:outer [] 27)))
-      (assert-eq 72 (restart-case
-                        (restart-case (do (cerror "nil" :condition)
-                                          72)
-                          (:inner [] 42))
-                      (:outer [] 27)))))
-    (testing "discard"
-      (handler-bind [:condition (fn [] (invoke-restart :inner))]
-        (assert-eq 42 (restart-case
-                          (restart-case (cerror "nil" :condition)
-                            (:inner [] 42))
-                        (:outer [] 27))))
-      (handler-bind [:condition (fn [] (invoke-restart :outer))]
-        (assert-eq 27 (restart-case
-                          (restart-case (do (cerror "nil" :condition)
-                                            72)
-                            (:inner [] 42))
-                        (:outer [] 27))))))
+                        (:inner [] :bad))
+                    (:outer [] :bad2)))
+      (assert-eq :ok (restart-case
+                         (restart-case (do (cerror "nil" :condition)
+                                           :ok)
+                           (:inner [] :bad))
+                       (:outer [] :bad2)))))
+  (testing "discard"
+    (handler-bind [:condition (fn [] (invoke-restart :inner))]
+      (assert-eq :ok (restart-case
+                         (restart-case (cerror "nil" :condition)
+                           (:inner [] :ok))
+                       (:outer [] :bad))))
+    (handler-bind [:condition (fn [] (invoke-restart :outer))]
+      (assert-eq :ok (restart-case
+                         (restart-case (do (cerror "nil" :condition)
+                                           :bad)
+                           (:inner [] :bad2))
+                       (:outer [] :ok))))))
