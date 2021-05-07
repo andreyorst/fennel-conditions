@@ -35,7 +35,7 @@
                                   "handler-bind"
                                   "restart-case"]}
  :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
- :project-version "v0.0.8"
+ :project-version "v0.0.9"
  :sandbox true
  :test-requirements {:impl/condition-system.fnl "(require-macros :fennel-test.test)
                                                  (require-macros :macros)

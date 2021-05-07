@@ -1,3 +1,9 @@
+## fennel-conditions v0.0.9 (2021-05-07)
+
+- Change how restarts are declared in dynamic scope.
+- Allow multiple resfarts with the same name to exist in single restart-case.
+- Fix bug in interactive debugger not showing all restarts
+
 ## fennel-conditions v0.0.8 (2021-05-06)
 
 - Fix nested `handler-bind` behavior when raising condition inside the handler
