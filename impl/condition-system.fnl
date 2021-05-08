@@ -159,12 +159,12 @@ thing."
                         (tset seen name true)
                         name)
             pad (string.rep " " (- max-name-width (slength (or uniq-name ""))))
+            restart-name (if uniq-name
+                             (.. "[" uniq-name pad "] ")
+                             (.. pad "   "))
             number-pad (string.rep " " (+ 1 (- max-number-width (length (tostring i)))))]
         (io.stderr:write
-         i
-         (if uniq-name
-             (.. ":" number-pad "[" uniq-name pad "] ")
-             (.. ":" number-pad pad "   "))
+         i ":" number-pad restart-name
          (if description
              (description:gsub "\n" " ")
              name)
