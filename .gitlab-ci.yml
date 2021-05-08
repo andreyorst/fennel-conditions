@@ -1,0 +1,68 @@
+---
+
+stages:
+    - test
+    - coverage
+
+variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
+.install_fennel: &fennel |-
+    cd "$CI_PROJECT_DIR"
+    git clone -q --depth=1 https://git.sr.ht/~technomancy/fennel
+    cd fennel || exit -1
+    make install
+    cd "$CI_PROJECT_DIR"
+
+.install_fenneldoc: &fenneldoc |-
+    cd "$CI_PROJECT_DIR"
+    git clone -q --depth=1 --recursive https://gitlab.com/andreyorst/fenneldoc.git
+    cd fenneldoc || exit -1
+    make install
+    cd "$CI_PROJECT_DIR"
+
+Lua:
+    image: alpine:edge
+    stage: test
+    before_script:
+        - >
+            apk add -q
+            lua5.2 lua5.3 lua5.3-dev lua5.4 luarocks5.3
+            git make gcc musl-dev
+        - luarocks-5.3 install luafilesystem
+        - export LUA=lua5.3
+        - *fennel
+        - *fenneldoc
+    script:
+        - LUAEXECUTABLES="lua5.2 lua5.3 lua5.4" make testall >/dev/null
+
+# Luajit actually is an impostor in Alpine, as the package actually
+# uses Moonjit implementation, which is different from what I'm
+# working with, so Fedora 33 image is used, which as of this moment
+# has latest Luajit available
+Luajit:
+    image: fedora:33
+    stage: test
+    before_script:
+        - dnf install -y -q lua luajit git make
+        - *fennel
+    script:
+        - LUA=luajit make test
+
+# We install fennel via luarocks because I don't want to figure out
+# how to install luacov without luarocks
+Coverage:
+    image: alpine:3.12.1
+    stage: coverage
+    before_script:
+        - apk add -q lua5.3 lua5.3-dev luarocks5.3 make gcc musl-dev
+        - luarocks-5.3 install fennel
+        - luarocks-5.3 install luacov
+        - luarocks-5.3 install luacov-cobertura
+        - luarocks-5.3 install luacov-console
+    script:
+        - LUA=lua5.3 make luacov
+    artifacts:
+        reports:
+            cobertura: coverage/cobertura-coverage.xml
+    coverage: '/Total.*\s(\d+.\d+%)$/'

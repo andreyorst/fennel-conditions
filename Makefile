@@ -9,6 +9,8 @@ FNLDOCS = $(FNLMACROS) $(FNLSOURCES)
 LUASOURCES = $(FNLSOURCES:.fnl=.lua)
 LUAEXECUTABLES ?= lua luajit
 FENNELDOC := $(shell command -v fenneldoc)
+LUACOV_COBERTURA := $(shell command -v luacov-cobertura)
+LUACOV_CONSOLE := $(shell command -v luacov-console)
 COMPILEFLAGS = --metadata --require-as-include
 
 .PHONY: build clean help doc luacov luacov-console $(LUAEXECUTABLES)
@@ -46,14 +48,14 @@ luacov: COMPILEFLAGS = --no-metadata --correlate
 luacov: distclean build $(LUATESTS)
 	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
 	luacov
+ifdef LUACOV_COBERTURA
 	mkdir -p coverage
 	luacov-cobertura -o coverage/cobertura-coverage.xml
-
-luacov-console: COMPILEFLAGS = --no-metadata
-luacov-console: distclean build $(LUATESTS)
-	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
-	luacov
+endif
+ifdef LUACOV_CONSOLE
 	luacov-console .
+	luacov-console --no-colored -s
+endif
 
 doc:
 ifdef FENNELDOC
