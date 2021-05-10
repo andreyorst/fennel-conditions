@@ -6,17 +6,20 @@ stages:
 
 variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    fennel_ver: 0.9.2
+    fenneldoc_ver: v0.1.6
 
 .install_fennel: &fennel |-
-    cd "$CI_PROJECT_DIR"
-    git clone -q --depth=1 https://git.sr.ht/~technomancy/fennel
+    cd "$HOME"
+    git clone -q --depth=1 --branch=0.9.2 https://git.sr.ht/~technomancy/fennel
     cd fennel || exit -1
     make install
     cd "$CI_PROJECT_DIR"
 
 .install_fenneldoc: &fenneldoc |-
-    cd "$CI_PROJECT_DIR"
-    git clone -q --depth=1 --recursive https://gitlab.com/andreyorst/fenneldoc.git
+    cd "$HOME"
+    git clone -q --depth=1 --branch="$fenneldoc_ver" \
+              --recursive https://gitlab.com/andreyorst/fenneldoc.git
     cd fenneldoc || exit -1
     make install
     cd "$CI_PROJECT_DIR"
@@ -31,10 +34,19 @@ Lua:
             git make gcc musl-dev
         - luarocks-5.3 install luafilesystem
         - export LUA=lua5.3
-        - *fennel
+        - luarocks-5.3 install fennel "$fennel_ver"
+        - luarocks-5.3 install luacov
+        - luarocks-5.3 install luacov-cobertura
+        - luarocks-5.3 install luacov-console
         - *fenneldoc
     script:
         - LUAEXECUTABLES="lua5.2 lua5.3 lua5.4" make testall >/dev/null
+        - make luacov-console  # doesn't use --correlate, more accurate
+        - make luacov          # produces Cobertura XML
+    artifacts:
+        reports:
+            cobertura: coverage/cobertura-coverage.xml
+    coverage: '/Total.*\s(\d+.\d+%)$/'
 
 # Luajit actually is an impostor in Alpine, as the package actually
 # uses Moonjit implementation, which is different from what I'm
@@ -48,21 +60,3 @@ Luajit:
         - *fennel
     script:
         - LUA=luajit make test
-
-# We install fennel via luarocks because I don't want to figure out
-# how to install luacov without luarocks
-Coverage:
-    image: alpine:3.12.1
-    stage: coverage
-    before_script:
-        - apk add -q lua5.3 lua5.3-dev luarocks5.3 make gcc musl-dev
-        - luarocks-5.3 install fennel
-        - luarocks-5.3 install luacov
-        - luarocks-5.3 install luacov-cobertura
-        - luarocks-5.3 install luacov-console
-    script:
-        - LUA=lua5.3 make luacov
-    artifacts:
-        reports:
-            cobertura: coverage/cobertura-coverage.xml
-    coverage: '/Total.*\s(\d+.\d+%)$/'

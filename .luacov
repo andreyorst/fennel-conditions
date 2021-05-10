@@ -3,7 +3,7 @@
 -- see https://keplerproject.github.io/luacov/doc/modules/luacov.defaults.html
 
 return {
-  exclude = {"macros.fnl", ".cache/*", "tests/*", "**/luarocks/*", "**/.luarocks/*"},
+  exclude = {"macros%.fnl", "tests/.*", "luarocks/.*"},
   runreport = true,
   statsfile = "luacov.stats";
   reportfile = "luacov.report";

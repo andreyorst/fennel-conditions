@@ -3,6 +3,15 @@
 (require-macros :macros)
 
 (deftest invoking-restarts
+  (testing "restart not found"
+    (let [(ok? msg) (pcall #(handler-bind [:error (fn [] (invoke-restart :bar))]
+                              (error :error)))]
+      (assert-not ok?)
+      (assert-is (msg:match "restart \"bar\" is not found$")))
+    (let [(ok? res) (pcall invoke-restart :bar)]
+      (assert-not ok?)
+      (assert-eq res {:message "restart \"bar\" is not found" :state :error})))
+
   (testing "control transfered to correct restart-case"
     (handler-bind [:condition (fn [] (invoke-restart :restart))]
       (assert-eq :ok (restart-case (error :condition)
