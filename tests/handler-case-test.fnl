@@ -3,13 +3,15 @@
 (require-macros :macros)
 
 (macro with-no-stderr [expr]
-  `(let [stderr-mt# (getmetatable io.stderr)
+  "Suppress output to stderr."
+  `(let [stderr-mt# (. (getmetatable io.stderr) :__index)
          write# stderr-mt#.write]
-     (tset stderr-mt# :write #"")
+     (tset stderr-mt# :write (fn [fd# ...]
+                               (when (not= fd# io.stderr)
+                                 (write# fd# ...))))
      (let [res# (table.pack ,expr)]
        (tset stderr-mt# :write write#)
        (table.unpack res# 1 res#.n))))
-
 
 (deftest handling-base
   (testing "throwing condtion"
@@ -112,9 +114,11 @@
   (testing "Signals and warnings do not transfer control flow if unhandled"
     (define-condition info)
     (define-condition warning)
+    (assert-not (signal info))
     (assert-not
      (handler-case (signal info)
        (warning [] :bad)))
+    (assert-not (with-no-stderr (warn warning)))
     (assert-not
      (with-no-stderr
       (handler-case (warn warning)

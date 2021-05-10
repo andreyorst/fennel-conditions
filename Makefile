@@ -10,17 +10,16 @@ LUASOURCES = $(FNLSOURCES:.fnl=.lua)
 LUAEXECUTABLES ?= lua luajit
 FENNELDOC := $(shell command -v fenneldoc)
 LUACOV_COBERTURA := $(shell command -v luacov-cobertura)
-LUACOV_CONSOLE := $(shell command -v luacov-console)
 COMPILEFLAGS = --metadata --require-as-include
 
-.PHONY: build clean help doc luacov luacov-console $(LUAEXECUTABLES)
+.PHONY: build clean distclean test luacov luacov-console doc help $(LUAEXECUTABLES)
 
 build: $(LUASOURCES)
 
 ${LUASOURCES}: $(FNLSOURCES)
 
 %.lua: %.fnl
-	$(FENNEL) --lua $(LUA) --compile $(COMPILEFLAGS) $< > $@
+	$(FENNEL) --lua $(LUA) $(COMPILEFLAGS) --compile $< > $@
 
 clean:
 	rm -f $(LUASOURCES) $(LUATESTS)
@@ -30,7 +29,7 @@ distclean: clean
 
 test: $(FNLTESTS)
 	@echo "Testing on" $$($(LUA) -v) >&2
-	@$(foreach test,$?,$(FENNEL) --lua $(LUA) --metadata --correlate $(test) || exit;)
+	@$(foreach test,$?,$(FENNEL) --lua $(LUA) $(test) || exit;)
 ifdef FENNELDOC
 	@fenneldoc --mode check $(FNLDOCS) || exit
 else
@@ -52,10 +51,13 @@ ifdef LUACOV_COBERTURA
 	mkdir -p coverage
 	luacov-cobertura -o coverage/cobertura-coverage.xml
 endif
-ifdef LUACOV_CONSOLE
+
+luacov-console: COMPILEFLAGS = --no-metadata
+luacov-console: clean build $(LUATESTS)
+	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
+	luacov
 	luacov-console .
 	luacov-console --no-colored -s
-endif
 
 doc:
 ifdef FENNELDOC
