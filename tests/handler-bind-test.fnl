@@ -8,9 +8,9 @@
                               (error :error)))]
       (assert-not ok?)
       (assert-is (msg:match "restart \"bar\" is not found$")))
-    (let [(ok? res) (pcall invoke-restart :bar)]
+    (let [(ok? msg) (pcall invoke-restart :bar)]
       (assert-not ok?)
-      (assert-eq res {:message "restart \"bar\" is not found" :state :error})))
+      (assert-is (msg:match "restart \"bar\" is not found$"))))
 
   (testing "control transfered to correct restart-case"
     (handler-bind [:condition (fn [] (invoke-restart :restart))]

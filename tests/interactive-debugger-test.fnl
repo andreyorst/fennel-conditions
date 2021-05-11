@@ -33,7 +33,7 @@
   (testing "default restart throws"
     (set stdin-meta.read (fn [] "throw"))
     (let [(_ msg) (with-no-stderr (pcall error :foo))]
-      (assert-is (msg:match "condition foo was raised") msg))
+      (assert-is (msg:match "condition \"foo\" was raised") msg))
 
     (define-condition bar)
     (let [(_ msg) (with-no-stderr (pcall invoke-debugger (make-condition bar 1 nil)))]
@@ -87,12 +87,12 @@
                            (:restart [a] [a :ok]))))
     (set i 0)
     (assert-eq
-     "Debugger was invoked on unhandled condition: foo
+     "Debugger was invoked on unhandled condition: \"foo\"
 restarts (invokable by number or by name):
 1: [restart] restart-doc
 2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
-debugger:restart>> Level 2 debugger was invoked on unhandled condition: Compile error in unknown:1
+debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
   unknown global in strict mode: a
 
 (values a)
@@ -100,7 +100,7 @@ debugger:restart>> Level 2 debugger was invoked on unhandled condition: Compile 
 * Try looking to see if there's a typo.
 * Try using the _G table instead, eg. _G.a if you really want a global.
 * Try moving this code to somewhere that a is in scope.
-* Try binding a as a local in the scope of this code.
+* Try binding a as a local in the scope of this code.\"
 restarts (invokable by number or by name):
 1: [restart] restart-doc
 2: [cancel ] Return to level 1 debugger

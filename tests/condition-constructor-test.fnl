@@ -33,7 +33,7 @@
 (deftest unhandled-condition-message
   (testing "primitive message"
     (let [(_ msg) (pcall error :primitive-condition)]
-      (assert-is (msg:match "condition primitive%-condition was raised$"))))
+      (assert-is (msg:match "condition \"primitive%-condition\" was raised$"))))
 
   (testing "object message"
     (define-condition err)

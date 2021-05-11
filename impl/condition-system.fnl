@@ -26,7 +26,7 @@ Primitive objects are transformed with `tostring`:
   (if (and (= :table (type condition-object))
            (= condition-object.type :condition))
       (tostring condition-object.id.name)
-      (tostring condition-object)))
+      (view condition-object)))
 
 (fn get-data [condition-object]
   "Extracts data from `condition-object'.
@@ -394,8 +394,11 @@ function."
              {: restart : target} {:state :restarted
                                    :restart #(restart (_unpack args))
                                    :target target}
-             _ {:state :error
-                :message (.. "restart " (view restart-name) " is not found")}) 2)))
+             _ (let [msg (.. "restart " (view restart-name) " is not found")]
+                 (if condition-system.current-scope
+                     {:state :error
+                      :message msg}
+                     msg))) 2)))
 
 
 ;;; Conditions
