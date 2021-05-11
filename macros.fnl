@@ -69,8 +69,9 @@ and `invoke-restart'."
                        :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
            (tset cs# :handlers scope#)))
        (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
-         (tset cs# :current-scope nil)
-         (tset cs# :handlers orig-scope#)
+         (doto cs#
+           (tset :current-scope nil)
+           (tset :handlers orig-scope#))
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
@@ -122,14 +123,27 @@ Specifying two restarts for `:signal-condition`:
                        :target target#
                        :restart (. restarts# i#)}]
            (tset cs# :restarts scope#)))
-       (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (tset cs# :restarts orig-scope#)
-         (tset cs# :current-scope nil)
+       (let [scope# cs#.restarts
+             (ok# res#) (pcall #(cs#.pack (do ,expr)))]
+         (doto cs#
+           (tset :restarts orig-scope#)
+           (tset :current-scope nil))
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :restarted :target target#} (res#.restart)
+               {:state :restarted} (_G.error res#)
                {:state :error :message msg#} (_G.error msg#)
-               _# (_G.error res#)))))))
+               ,(sym :_)
+               (do (tset cs# :restarts scope#) ;; restoring restart context
+                   (let [res2# (select 2 (pcall cs#.raise :error res#))]
+                     (doto cs#
+                       (tset :restarts orig-scope#)
+                       (tset :current-scope nil))
+                     (match res2#
+                       {:state :restarted :target target#} (res#.restart)
+                       {:state :restarted} (_G.error res2#)
+                       {:state :error :message msg2#} (_G.error msg2#)
+                       ,(sym :_) (_G.error res#))))))))))
 
 (fn handler-case [expr ...]
   "Condition handling similar to try/catch.
@@ -159,8 +173,9 @@ Handling `error' condition:
     (each [_ handler (ipairs [...])]
       (assert-compile (list? handler) "handlers must be defined as lists" handler)
       (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
-      (table.insert handlers (. handler 1))
-      (table.insert handlers (list 'fn (unpack handler 2))))
+      (doto handlers
+        (table.insert (. handler 1))
+        (table.insert (list 'fn (unpack handler 2)))))
     `(let [target# {}
            cs# (require ,condition-system)
            handlers# ,handlers
@@ -173,8 +188,9 @@ Handling `error' condition:
            (tset cs# :handlers scope#)))
        (let [scope# cs#.handlers
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (tset cs# :handlers orig-scope#)
-         (tset cs# :current-scope nil)
+         (doto cs#
+           (tset :handlers orig-scope#)
+           (tset :current-scope nil))
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (res#.data)

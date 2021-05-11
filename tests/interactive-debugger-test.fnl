@@ -118,7 +118,7 @@ debugger:restart>> "
     (var i 0)
     (set stdin-meta.read (fn []
                            (set i (+ i 1))
-                           (. ["1" "a" "3"] i)))
+                           (. ["1" "a" "3" "2"] i)))
     (assert-eq false (pcall #(with-no-stderr
                               (restart-case (invoke-debugger :foo)
                                 (:restart [a] [a :ok]))))))
