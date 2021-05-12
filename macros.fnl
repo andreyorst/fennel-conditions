@@ -63,15 +63,13 @@ and `invoke-restart'."
            binding-vec# ,binding-vec
            orig-scope# cs#.handlers]
        (for [i# ,binding-len 1 -2]
-         (let [scope# {:parent cs#.handlers
-                       :target target#
-                       :handler-type :handler-bind
-                       :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}]
-           (tset cs# :handlers scope#)))
+         (tset cs# :handlers {:parent cs#.handlers
+                              :target target#
+                              :handler-type :handler-bind
+                              :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}))
        (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
-         (doto cs#
-           (tset :current-scope nil)
-           (tset :handlers orig-scope#))
+         (tset cs# :current-scope nil)
+         (tset cs# :handlers orig-scope#)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
@@ -102,55 +100,44 @@ Specifying two restarts for `:signal-condition`:
     (assert-compile (list? restart) "restarts must be defined as lists" restart)
     (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
     (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
-  (let [restarts
-        (icollect [_ [restart & fn-tail] (ipairs [...])]
-          (let [[args descr body] fn-tail]
-            {:restart (list 'fn (unpack fn-tail))
-             :name restart
-             :description (when (and (= :string (type descr))
-                                     (not= nil body))
-                            descr)
-             :args (when (not= nil (next args))
-                     (icollect [_ v (ipairs args)]
-                       (view v {:one-line? true})))}))
+  (let [_ (sym :_)
+        restarts (icollect [_ [restart & fn-tail] (ipairs [...])]
+                   (let [[args descr body] fn-tail]
+                     {:restart (list 'fn (unpack fn-tail))
+                      :name restart
+                      :description (when (and (= :string (type descr))
+                                              (not= nil body))
+                                     descr)
+                      :args (when (not= nil (next args))
+                              (icollect [_ v (ipairs args)]
+                                (view v {:one-line? true})))}))
         restart-len (length restarts)]
     `(let [target# {}
            cs# (require ,condition-system)
            restarts# ,restarts
            orig-scope# cs#.restarts]
        (for [i# ,restart-len 1 -1]
-         (let [scope# {:parent cs#.restarts
-                       :target target#
-                       :restart (. restarts# i#)}]
-           (tset cs# :restarts scope#)))
+         (tset cs# :restarts {:parent cs#.restarts
+                              :target target#
+                              :restart (. restarts# i#)}))
        (let [scope# cs#.restarts
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (doto cs#
-           (tset :restarts orig-scope#)
-           (tset :current-scope nil))
+         (tset cs# :restarts orig-scope#)
+         (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :restarted :target target#} (res#.restart)
                {:state :restarted} (_G.error res#)
                {:state :error :message msg#} (_G.error msg#)
-               ,(sym :_) ;; Compiler has troubles with match wildcard in macros
-               (do
-                 ;; A Lua error happened either because Lua `error`
-                 ;; was used, or Lua runtime raised implicit error,
-                 ;; e.g. like with `(/ 1 nil)`. We need to restore the
-                 ;; restart dynamic context to allow catching errors
-                 (tset cs# :restarts scope#)
-                 (let [res2# (select 2 (pcall cs#.raise :error res#))]
-                   (doto cs#
-                     (tset :restarts orig-scope#)
-                     (tset :current-scope nil))
-                   (match res2#
-                     {:state :restarted :target target#} (res2#.restart)
-                     {:state :restarted} (_G.error res2#)
-                     {:state :error :message msg2#} (_G.error msg2#)
-                     ;; TODO: better check if it is valid to throw
-                     ;; original error here
-                     ,(sym :_) (_G.error res#))))))))))
+               ,_ (let [(_# res2#) (do (tset cs# :restarts scope#)
+                                       (pcall cs#.raise :error res#))]
+                    (tset cs# :restarts orig-scope#)
+                    (tset cs# :current-scope nil)
+                    (match res2#
+                      {:state :restarted :target target#} (res2#.restart)
+                      {:state :restarted} (_G.error res2#)
+                      {:state :error :message msg2#} (_G.error msg2#)
+                      ,_ (_G.error res#)))))))))
 
 (fn handler-case [expr ...]
   "Condition handling similar to try/catch.
@@ -180,36 +167,28 @@ Handling `error' condition:
     (each [_ handler (ipairs [...])]
       (assert-compile (list? handler) "handlers must be defined as lists" handler)
       (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
-      (doto handlers
-        (table.insert (. handler 1))
-        (table.insert (list 'fn (unpack handler 2)))))
+      (table.insert handlers (. handler 1))
+      (table.insert handlers (list 'fn (unpack handler 2))))
     `(let [target# {}
            cs# (require ,condition-system)
            handlers# ,handlers
            orig-scope# cs#.handlers]
-       (for [i# (length handlers#) 1 -2]
-         (let [scope# {:parent cs#.handlers
-                       :target target#
-                       :handler-type :handler-case
-                       :handlers {(. handlers# (- i# 1)) (. handlers# i#)}}]
-           (tset cs# :handlers scope#)))
+       (for [i# ,(length handlers) 1 -2]
+         (tset cs# :handlers {:parent cs#.handlers
+                              :target target#
+                              :handler-type :handler-case
+                              :handlers {(. handlers# (- i# 1)) (. handlers# i#)}}))
        (let [scope# cs#.handlers
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
-         (doto cs#
-           (tset :handlers orig-scope#)
-           (tset :current-scope nil))
+         (tset cs# :handlers orig-scope#)
+         (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
                {:state :handled :target target#} (res#.data)
                {:state :error :message msg#} (_G.error msg#)
                {:state :handled} (_G.error res#)
-               _# (match ((fn find# [scope#]
-                            (when scope#
-                              (match (or (. scope#.handlers :fennel-conditions/error)
-                                         (. scope#.handlers :fennel-conditions/condition))
-                                handler# handler#
-                                nil (find# scope#.parent)))) scope#)
-                    handler# (handler# res#)
+               _# (match (cs#.find-handler res# :error scope#)
+                    {:handler handler#} (handler# res#)
                     nil (_G.error res#))))))))
 
 (fn define-condition [condition-symbol ...]

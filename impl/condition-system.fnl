@@ -327,12 +327,11 @@ previous debug level."
       handler {: handler : scope}
       nil (find-primitive-handler condition-object type* scope.parent))))
 
-(fn find-handler [condition-object type* scope]
-;;; Finds `condition-object' handler in dynamic scope `scope`.  If
-;;; `condition-object' is a table with `type` key equal to
-;;; `:condition` searches handler based on condition object's
-;;; inheritance.  If anything else, searches handler by object
-;;; reference.
+(fn condition-system.find-handler [condition-object type* scope]
+  "Finds the `condition-object' handler of `type*` in dynamic scope
+`scope`.  If `condition-object' is a table with `type` key equal to
+`:condition` searches handler based on condition object's inheritance.
+If anything else, searches handler by object reference."
   (if (and (= :table (type condition-object))
            (= :condition condition-object.type))
       (find-object-handler condition-object type* scope)
@@ -345,7 +344,7 @@ Finds the `condition-object' handler in the dynamic scope.  If found,
 calls the handler, and returns a table with `:state` set to
 `:handled`, and `:data` bound to a packed table of handler's return
 values."
-  (match (find-handler condition-object type* (or ?scope condition-system.handlers))
+  (match (condition-system.find-handler condition-object type* (or ?scope condition-system.handlers))
     {: handler : scope}
     (do (set condition-system.current-scope scope)
         (match scope.handler-type
