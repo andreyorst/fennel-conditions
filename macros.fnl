@@ -133,17 +133,24 @@ Specifying two restarts for `:signal-condition`:
                {:state :restarted :target target#} (res#.restart)
                {:state :restarted} (_G.error res#)
                {:state :error :message msg#} (_G.error msg#)
-               ,(sym :_)
-               (do (tset cs# :restarts scope#) ;; restoring restart context
-                   (let [res2# (select 2 (pcall cs#.raise :error res#))]
-                     (doto cs#
-                       (tset :restarts orig-scope#)
-                       (tset :current-scope nil))
-                     (match res2#
-                       {:state :restarted :target target#} (res#.restart)
-                       {:state :restarted} (_G.error res2#)
-                       {:state :error :message msg2#} (_G.error msg2#)
-                       ,(sym :_) (_G.error res#))))))))))
+               ,(sym :_) ;; Compiler has troubles with match wildcard in macros
+               (do
+                 ;; A Lua error happened either because Lua `error`
+                 ;; was used, or Lua runtime raised implicit error,
+                 ;; e.g. like with `(/ 1 nil)`. We need to restore the
+                 ;; restart dynamic context to allow catching errors
+                 (tset cs# :restarts scope#)
+                 (let [res2# (select 2 (pcall cs#.raise :error res#))]
+                   (doto cs#
+                     (tset :restarts orig-scope#)
+                     (tset :current-scope nil))
+                   (match res2#
+                     {:state :restarted :target target#} (res2#.restart)
+                     {:state :restarted} (_G.error res2#)
+                     {:state :error :message msg2#} (_G.error msg2#)
+                     ;; TODO: better check if it is valid to throw
+                     ;; original error here
+                     ,(sym :_) (_G.error res#))))))))))
 
 (fn handler-case [expr ...]
   "Condition handling similar to try/catch.

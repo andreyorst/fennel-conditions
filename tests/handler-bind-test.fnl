@@ -64,7 +64,7 @@
                                 (:r1 [] (table.insert res "r1") (error :error))
                                 (:r2 [] (table.insert res "r2")))))]
       (assert-not ok?)
-      (assert-is (msg:gmatch "restart \"r2\" is not found$"))
+      (assert-is (msg:match "restart \"r2\" is not found$"))
       (assert-eq ["se" "r1" "e"] res)))
 
   (testing "re-signale the error"
@@ -92,4 +92,16 @@
                            (restart-case (error :condition)
                              (:r [] (table.insert res 10) :ok))))))
       (assert-eq [1 2 3 4 5 6 7 9 10]
-                 res))))
+                 res)))
+
+  (testing "handling Lua error"
+    (assert-eq :ok (handler-bind [:fennel-conditions/error
+                                  (fn [] (invoke-restart :r))]
+                     (restart-case (/ 1 nil)
+                       (:r [] :ok))))
+    (let [(ok? msg) (pcall #(handler-bind [:fennel-conditions/error
+                                           (fn [] :decline)]
+                              (restart-case (/ 1 nil)
+                                (:r [] :ok))))]
+      (assert-not ok?)
+      (assert-is (msg:match "attempt to perform arithmetic on a nil value$")))))

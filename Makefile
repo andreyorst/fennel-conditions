@@ -29,7 +29,7 @@ distclean: clean
 
 test: $(FNLTESTS)
 	@echo "Testing on" $$($(LUA) -v) >&2
-	@$(foreach test,$?,$(FENNEL) --lua $(LUA) $(test) || exit;)
+	@$(foreach test,$?,$(FENNEL) --lua $(LUA) --correlate $(test) || exit;)
 ifdef FENNELDOC
 	@fenneldoc --mode check $(FNLDOCS) || exit
 else

@@ -80,18 +80,19 @@
                (handler-case (error (make-condition warning))
                  (info [] :bad)
                  (err [] :ok))))
-  (testing "nested inheritance")
-  (define-condition warning :parent err)
-  (define-condition simple-warning :parent warning)
-  (define-condition very-simple-warning :parent simple-warning)
-  (assert-eq :ok
-             (handler-case (error very-simple-warning)
-               (info [] :bad)
-               (err [] :ok)))
-  (assert-eq :ok
-             (handler-case (error (make-condition very-simple-warning))
-               (info [] :bad)
-               (err [] :ok))))
+
+  (testing "nested inheritance"
+    (define-condition warning :parent err)
+    (define-condition simple-warning :parent warning)
+    (define-condition very-simple-warning :parent simple-warning)
+    (assert-eq :ok
+               (handler-case (error very-simple-warning)
+                 (info [] :bad)
+                 (err [] :ok)))
+    (assert-eq :ok
+               (handler-case (error (make-condition very-simple-warning))
+                 (info [] :bad)
+                 (err [] :ok)))))
 
 (deftest condition-arguments
   (testing "passing arguments"
@@ -138,10 +139,14 @@
 
 (deftest lua-errors
   (testing "handling lua errors"
-    (assert-is (handler-case (* 1 nil)
-                 (:fennel-conditions/error [] true)))
-    (assert-is (handler-case (* 1 nil)
-                 (:fennel-conditions/condition [] true)))))
+    (assert-eq :ok (handler-case (* 1 nil)
+                     (:fennel-conditions/error [] :ok)))
+    (assert-eq :ok (handler-case (* 1 nil)
+                     (:fennel-conditions/condition [] :ok)))
+
+    (assert-eq :ok (handler-case (restart-case (* 1 nil)
+                                   (:r [] :bad))
+                     (:fennel-conditions/error [] :ok)))))
 
 (deftest rethrowing
   (testing "throwing condition from handler"
