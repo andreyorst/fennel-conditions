@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.0.9)
+# Condition-system.fnl (v0.0.10)
 
 **Table of contents**
 
@@ -8,6 +8,7 @@
 - [`handle`](#handle)
 - [`invoke-restart`](#invoke-restart)
 - [`compose-error-message`](#compose-error-message)
+- [`find-handler`](#find-handler)
 - [`invoke-debugger`](#invoke-debugger)
 - [`pack`](#pack)
 - [`unpack`](#unpack)
@@ -84,6 +85,18 @@ Conditions with data produce extended messages:
  "condition simple-error was raised with the following arguments: 1, 2, 3"
  (compose-error-message (make-condition simple-error 1 2 3)))
 ```
+
+## `find-handler`
+Function signature:
+
+```
+(find-handler condition-object type* scope)
+```
+
+Finds the `condition-object` handler of `type*` in dynamic scope
+`scope`.  If `condition-object` is a table with `type` key equal to
+`:condition` searches handler based on condition object's inheritance.
+If anything else, searches handler by object reference.
 
 ## `invoke-debugger`
 Function signature:

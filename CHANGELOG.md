@@ -1,3 +1,9 @@
+## fennel-conditions v0.0.10 (2021-05-13)
+
+- Fix bug in `unwind-protect` only executing first form.
+- Temporarily re-raise Lua errors in `restart-case` as a condition in case `:fennel-condition/error` or `:fennel-condition/condition` exist and will call the defined restarts.
+- Throw Lua error when restart called outside of a handler and no restart bound.
+
 ## fennel-conditions v0.0.9 (2021-05-07)
 
 - Change how restarts are declared in dynamic scope.
