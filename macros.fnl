@@ -48,7 +48,8 @@ Handlers executed but their return values are not used:
 
 To provide a return value use either `handler-case' or `restart-case'
 and `invoke-restart'."
-  (let [binding-len (length binding-vec)]
+  (let [_ (sym :_)
+        binding-len (length binding-vec)]
     (assert-compile (= (% binding-len 2) 0)
                     "expected even number of signal/handler bindings"
                     binding-vec)
@@ -74,7 +75,7 @@ and `invoke-restart'."
              (match res#
                {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
                {:state :error :message msg#} (_G.error msg#)
-               _# (_G.error res#)))))))
+               ,_ (_G.error res#)))))))
 
 (fn restart-case [expr ...]
   "Resumable condition restart point.
@@ -129,7 +130,7 @@ Specifying two restarts for `:signal-condition`:
                {:state :restarted :target target#} (res#.restart)
                {:state :restarted} (_G.error res#)
                {:state :error :message msg#} (_G.error msg#)
-               ,_ (let [(_# res2#) (do (tset cs# :restarts scope#)
+               ,_ (let [(,_ res2#) (do (tset cs# :restarts scope#)
                                        (pcall cs#.raise :error res#))]
                     (tset cs# :restarts orig-scope#)
                     (tset cs# :current-scope nil)
@@ -163,7 +164,8 @@ Handling `error' condition:
                 (:error-condition [] 42)))
 ```"
 
-  (let [handlers []]
+  (let [_ (sym :_)
+        handlers []]
     (each [_ handler (ipairs [...])]
       (assert-compile (list? handler) "handlers must be defined as lists" handler)
       (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
@@ -187,7 +189,7 @@ Handling `error' condition:
                {:state :handled :target target#} (res#.data)
                {:state :error :message msg#} (_G.error msg#)
                {:state :handled} (_G.error res#)
-               _# (match (cs#.find-handler res# :error scope#)
+               ,_ (match (cs#.find-handler res# :error scope#)
                     {:handler handler#} (handler# res#)
                     nil (_G.error res#))))))))
 
@@ -278,8 +280,8 @@ error occurred."
   `(let [cs# (require ,condition-system)]
      (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
        (if ok#
-           (do ,... (cs#.unpack res#))
-           (do ,... (_G.error res#))))))
+           (do (do ,...) (cs#.unpack res#))
+           (do (do ,...) (_G.error res#))))))
 
 (setmetatable
  {: restart-case

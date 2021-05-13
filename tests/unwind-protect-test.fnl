@@ -26,4 +26,15 @@
                                (table.insert res "inner"))
                            (table.insert res "outer"))
                        (:error [] (table.insert res "handler") :ok)))
-      (assert-eq res ["inner" "outer" "handler"]))))
+      (assert-eq res ["inner" "outer" "handler"])))
+
+  (testing "several forms"
+    (let [res []]
+      (assert-not (pcall #(unwind-protect
+                              (unwind-protect
+                                  (error :error)
+                                (table.insert res "inner 1")
+                                (table.insert res "inner 2"))
+                            (table.insert res "outer 1")
+                            (table.insert res "outer 2"))))
+      (assert-eq res ["inner 1" "inner 2" "outer 1" "outer 2"]))))
