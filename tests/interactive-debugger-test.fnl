@@ -123,15 +123,30 @@ debugger:restart>> "
                               (restart-case (invoke-debugger :foo)
                                 (:restart [a] [a :ok]))))))
 
+  (testing "throw from nested scopes"
+    (set stdin-meta.read #"4")
+    (assert-eq false (pcall #(with-no-stderr
+                              (restart-case
+                                  (handler-case
+                                      (handler-bind [:foo (fn [] :err)]
+                                        (handler-case
+                                            (restart-case
+                                                (restart-case (invoke-debugger :foo)
+                                                  (:restart [] :err))
+                                              (:restart [] :err))
+                                          (:bar [] :err)))
+                                    (:bar [] :err))
+                                (:restart [] :err))))))
+
   (testing "OK from second level"
-    (var i 0)
-    (set stdin-meta.read (fn []
-                           (set i (+ i 1))
-                           (. ["1" "a" "2"] i)))
-    (assert-eq [:ok :ok] (with-no-stderr
-                          (restart-case (invoke-debugger :foo)
-                            (:restart [a] [a :ok])
-                            (:restart2 [] [:ok :ok])))))
+           (var i 0)
+           (set stdin-meta.read (fn []
+                                  (set i (+ i 1))
+                                  (. ["1" "a" "2"] i)))
+           (assert-eq [:ok :ok] (with-no-stderr
+                                 (restart-case (invoke-debugger :foo)
+                                   (:restart [a] [a :ok])
+                                   (:restart2 [] [:ok :ok])))))
 
   (testing "Wrong action"
     (var i 0)

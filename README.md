@@ -33,6 +33,12 @@ Warnings automatically derive from both `:fennel-conditions/condition` and `:fen
 Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be included in order to use this library in resulting Lua application.
 See [`--require-as-include`](https://fennel-lang.org/reference#include) flag in compiler options.
 
+### Note on the `_G.error`
+
+While this library provides it's own `error` function, library itself still internally uses the `_G.error` (i.e. original Lua `error`) function to transfer control.
+Therefore it is not recommended to override `_G.error` to something that does not transfer control flow.
+You should absolutely not set `_G.error` to the `error` function provided by this library, as it will create infinite loop.
+
 ## Documentation
 
 Documentation is auto-generated with [Fenneldoc](https://gitlab.com/andreyorst/fenneldoc) and can be found [here](https://gitlab.com/andreyorst/fennel-conditions/-/tree/master/doc).

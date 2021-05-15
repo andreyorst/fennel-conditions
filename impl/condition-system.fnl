@@ -99,6 +99,14 @@ thing."
 
 (local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
 
+;;; Private library API
+
+(local condition-system
+  {:compose-error-message compose-error-message
+   :current-target nil
+   :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
+   :unpack _unpack})
+
 ;;; Debugger
 
 (fn flatten-restarts [restarts scope]
@@ -170,7 +178,7 @@ thing."
              name)
          "\n")))))
 
-(fn restart-menu [invoke-debugger restarts scope prompt? level]
+(fn restart-menu [restarts scope prompt? level]
 ;;; Interactive restart menu.  Restarts are displayed with the
 ;;; following format: `number: [name] name-or-docstring`, where `name`
 ;;; is a unique restart name in current menu.  Restarts can be called
@@ -191,7 +199,7 @@ thing."
         named-action (. named input)]
     (if (or action named-action)
         (match (pcall take-action (or action named-action))
-          (true nil) (restart-menu invoke-debugger restarts scope nil level) ; no user input provided
+          (true nil) (restart-menu restarts scope nil level) ; no user input provided
           ;; Restart was found and no errors happened up to the restart call
           (true restart) (error restart)
           ;; some builtin restart was called
@@ -200,18 +208,20 @@ thing."
             ;; exiting the nested debugger session
             {:cancel true} data
             ;; debugger invoked when no handlers were found, throwing error will land on the top level
-            {:throw true : message} (_G.error message 3))
+            {:throw true : message} (if condition-system.restarts.parent
+                                        (error {:state :error : message})
+                                        (error message 3)))
           ;; error happened during argument providing (likely). Entering nested debug session
-          (false res) (match (invoke-debugger res scope (+ (or level 1) 1))
-                        {:cancel true} (restart-menu invoke-debugger restarts scope true level)
+          (false res) (match (condition-system.invoke-debugger res scope (+ (or level 1) 1))
+                        {:cancel true} (restart-menu restarts scope true level)
                         _ _))
         (do (if (= nil input)
                 (io.stderr:write "\n")
                 (io.stderr:write "Wrong action. Use number from 1 to " (length restarts)
                                  " or restart name.\n"))
-            (restart-menu invoke-debugger restarts scope nil level)))))
+            (restart-menu restarts scope nil level)))))
 
-(fn invoke-debugger [condition-object scope level]
+(fn condition-system.invoke-debugger [condition-object scope level]
   "Invokes interactive debugger for given `condition-object'.  Accepts
 `scope' with bound restarts, and optional `level', indicating current
 debugger depth.
@@ -275,17 +285,7 @@ previous debug level."
            (build-arg-str ", " args))
        _ "")
      "\n")
-    (restart-menu invoke-debugger restarts scope true level)))
-
-
-;;; Private library API
-
-(local condition-system
-  {:compose-error-message compose-error-message
-   :current-target nil
-   :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
-   :unpack _unpack
-   :invoke-debugger invoke-debugger})
+    (restart-menu restarts scope true level)))
 
 
 ;;; Handlers
@@ -427,7 +427,7 @@ function."
 ;;; interactive debugger.
   (match (raise-condition condition-object :error)
     nil (if _G.fennel-conditions/use-debugger?
-            (invoke-debugger condition-object condition-system.restarts)
+            (condition-system.invoke-debugger condition-object condition-system.restarts)
             (error (compose-error-message condition-object) 2))))
 
 
