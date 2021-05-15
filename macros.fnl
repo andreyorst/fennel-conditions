@@ -49,32 +49,42 @@ Handlers executed but their return values are not used:
 To provide a return value use either `handler-case' or `restart-case'
 and `invoke-restart'."
   (let [_ (sym :_)
-        binding-len (length binding-vec)]
+        cs (gensym :condition-system)
+        target (gensym :target)
+        binding-len (length binding-vec)
+        setup `(doto ,cs)]
     (assert-compile (= (% binding-len 2) 0)
                     "expected even number of signal/handler bindings"
                     binding-vec)
     ;; check each handler to be a symbol or a function definition
-    (for [i 2 binding-len 2]
+    (for [i binding-len 1 -2]
       (let [handler (. binding-vec i)]
         (assert-compile (or (sym? handler) (function-form? handler))
                         "handler must be a function"
-                        handler)))
-    `(let [target# {}
-           cs# (require ,condition-system)
-           binding-vec# ,binding-vec
+                        handler)
+        (table.insert
+         setup
+         `(tset :handlers {:parent (. ,cs :handlers)
+                           :target ,target
+                           :handler-type :handler-bind
+                           :handlers {,(. binding-vec (- i 1))
+                                      ,(. binding-vec i)}}))))
+    `(let [,target {}
+           ,cs (require ,condition-system)
+           cs# ,cs
            orig-scope# cs#.handlers]
-       (for [i# ,binding-len 1 -2]
-         (tset cs# :handlers {:parent cs#.handlers
-                              :target target#
-                              :handler-type :handler-bind
-                              :handlers {(. binding-vec# (- i# 1)) (. binding-vec# i#)}}))
+       ,setup
        (let [(ok# res#) (pcall #(cs#.pack (do ,...)))]
          (tset cs# :current-scope nil)
          (tset cs# :handlers orig-scope#)
          (if ok# (cs#.unpack res#)
              (match res#
-               {:state :handled :target target#} (cs#.raise res#.type res#.condition-object)
-               {:state :error :message msg#} (_G.error msg#)
+               {:state :handled :target ,target} (cs#.raise res#.type res#.condition-object)
+               {:state :error :message msg#}
+               (if (or cs#.handlers.parent
+                       cs#.restarts.parent)
+                   (_G.error res#)
+                   (_G.error msg# 2))
                ,_ (_G.error res#)))))))
 
 (fn restart-case [expr ...]
@@ -102,42 +112,54 @@ Specifying two restarts for `:signal-condition`:
     (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
     (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
   (let [_ (sym :_)
-        restarts (icollect [_ [restart & fn-tail] (ipairs [...])]
-                   (let [[args descr body] fn-tail]
-                     {:restart (list 'fn (unpack fn-tail))
-                      :name restart
-                      :description (when (and (= :string (type descr))
-                                              (not= nil body))
-                                     descr)
-                      :args (when (not= nil (next args))
-                              (icollect [_ v (ipairs args)]
-                                (view v {:one-line? true})))}))
-        restart-len (length restarts)]
-    `(let [target# {}
-           cs# (require ,condition-system)
-           restarts# ,restarts
+        cs (gensym :condition-system)
+        target (gensym :target)
+        restarts [...]
+        setup '(doto ,cs)]
+    (for [i (length restarts) 1 -1]
+      (let [[restart & fn-tail] (. restarts i)
+            [args descr body] fn-tail
+            restart {:restart (list 'fn (unpack fn-tail))
+                     :name restart
+                     :description (when (and (= :string (type descr))
+                                             (not= nil body))
+                                    descr)
+                     :args (when (not= nil (next args))
+                             (icollect [_ v (ipairs args)]
+                               (view v {:one-line? true})))}]
+        (table.insert setup `(tset :restarts {:parent (. ,cs :restarts)
+                                              :target ,target
+                                              :restart ,restart}))))
+    `(let [,target {}
+           ,cs (require ,condition-system)
+           cs# ,cs
            orig-scope# cs#.restarts]
-       (for [i# ,restart-len 1 -1]
-         (tset cs# :restarts {:parent cs#.restarts
-                              :target target#
-                              :restart (. restarts# i#)}))
+       ,setup
        (let [scope# cs#.restarts
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :restarts orig-scope#)
          (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
-               {:state :restarted :target target#} (res#.restart)
+               {:state :restarted :target ,target} (res#.restart)
                {:state :restarted} (_G.error res#)
-               {:state :error :message msg#} (_G.error msg#)
+               {:state :error :message msg#}
+               (if (or cs#.handlers.parent
+                       cs#.restarts.parent)
+                   (_G.error res#)
+                   (_G.error msg# 2))
                ,_ (let [(,_ res2#) (do (tset cs# :restarts scope#)
                                        (pcall cs#.raise :error res#))]
                     (tset cs# :restarts orig-scope#)
                     (tset cs# :current-scope nil)
                     (match res2#
-                      {:state :restarted :target target#} (res2#.restart)
+                      {:state :restarted :target ,target} (res2#.restart)
                       {:state :restarted} (_G.error res2#)
-                      {:state :error :message msg2#} (_G.error msg2#)
+                      {:state :error :message msg2#}
+                      (if (or cs#.handlers.parent
+                              cs#.restarts.parent)
+                          (_G.error res2#)
+                          (_G.error msg2# 2))
                       ,_ (_G.error res#)))))))))
 
 (fn handler-case [expr ...]
@@ -163,35 +185,40 @@ Handling `error' condition:
 (assert-eq 42 (handler-case (error :error-condition)
                 (:error-condition [] 42)))
 ```"
-
   (let [_ (sym :_)
-        handlers []]
-    (each [_ handler (ipairs [...])]
-      (assert-compile (list? handler) "handlers must be defined as lists" handler)
-      (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
-      (table.insert handlers (. handler 1))
-      (table.insert handlers (list 'fn (unpack handler 2))))
-    `(let [target# {}
-           cs# (require ,condition-system)
-           handlers# ,handlers
+        target (gensym :target)
+        cs (gensym :condition-system)
+        handlers [...]
+        setup `(doto ,cs)]
+    (for [i (length handlers) 1 -1]
+      (let [handler (. handlers i)]
+        (assert-compile (list? handler) "handlers must be defined as lists" handler)
+        (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
+        (table.insert setup `(tset :handlers {:parent (. ,cs :handlers)
+                                              :target ,target
+                                              :handler-type :handler-case
+                                              :handlers {,(. handler 1) ,(list 'fn (unpack handler 2))}}))))
+    `(let [,target {}
+           ,cs (require ,condition-system)
+           cs# ,cs
            orig-scope# cs#.handlers]
-       (for [i# ,(length handlers) 1 -2]
-         (tset cs# :handlers {:parent cs#.handlers
-                              :target target#
-                              :handler-type :handler-case
-                              :handlers {(. handlers# (- i# 1)) (. handlers# i#)}}))
+       ,setup
        (let [scope# cs#.handlers
              (ok# res#) (pcall #(cs#.pack (do ,expr)))]
          (tset cs# :handlers orig-scope#)
          (tset cs# :current-scope nil)
          (if ok# (cs#.unpack res#)
              (match res#
-               {:state :handled :target target#} (res#.data)
-               {:state :error :message msg#} (_G.error msg#)
+               {:state :handled :target ,target} (res#.data)
+               {:state :error :message msg#}
+               (if (or cs#.handlers.parent
+                       cs#.restarts.parent)
+                   (_G.error res#)
+                   (_G.error msg# 2))
                {:state :handled} (_G.error res#)
                ,_ (match (cs#.find-handler res# :error scope#)
                     {:handler handler#} (handler# res#)
-                    nil (_G.error res#))))))))
+                    ,_ (_G.error res#))))))))
 
 (fn define-condition [condition-symbol ...]
   "Create base condition object with `condition-symbol' from which
