@@ -1,4 +1,4 @@
-# Macros.fnl (v0.0.10)
+# Macros.fnl (v0.0.11-dev)
 Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common

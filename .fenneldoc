@@ -20,8 +20,7 @@
  :order "alphabetic"
  :out-dir "./doc"
  :project-copyright "Copyright (C) 2021 Andrey Listopadov"
- :project-doc-order {:impl/condition-system.fnl ["handlers"
-                                                 "restarts"
+ :project-doc-order {:impl/condition-system.fnl ["dynamic-scope"
                                                  "raise"
                                                  "handle"
                                                  "invoke-restart"]
@@ -35,7 +34,7 @@
                                   "handler-bind"
                                   "restart-case"]}
  :project-license "[MIT](https://gitlab.com/andreyorst/fennel-conditions/-/raw/master/LICENSE)"
- :project-version "v0.0.10"
+ :project-version "v0.0.11-dev"
  :sandbox true
  :test-requirements {:impl/condition-system.fnl "(require-macros :fennel-test.test)
                                                  (require-macros :macros)

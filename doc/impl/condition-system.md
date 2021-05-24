@@ -1,9 +1,8 @@
-# Condition-system.fnl (v0.0.10)
+# Condition-system.fnl (v0.0.11-dev)
 
 **Table of contents**
 
-- [`handlers`](#handlers)
-- [`restarts`](#restarts)
+- [`dynamic-scope`](#dynamic-scope)
 - [`raise`](#raise)
 - [`handle`](#handle)
 - [`invoke-restart`](#invoke-restart)
@@ -13,11 +12,14 @@
 - [`pack`](#pack)
 - [`unpack`](#unpack)
 
-## `handlers`
-Dynamic scope for condition handlers.
+## `dynamic-scope`
+Dynamic scope for the condition system.
 
-## `restarts`
-Dynamic scope for restarts.
+Dynamic scope is a maintained table where handlers and restarts are
+stored thread-locally.  Thread name is obtained with
+`coroutine.running` call and each thread holds a table with the
+following keys `:handlers`, `:restarts`, and `:current-scope`.
+Handlers and restarts itselves are tables.
 
 ## `raise`
 Function signature:
@@ -40,8 +42,8 @@ Handle the `condition-object` of `type*` and optional `?scope`.
 
 Finds the `condition-object` handler in the dynamic scope.  If found,
 calls the handler, and returns a table with `:state` set to
-`:handled`, and `:data` bound to a packed table of handler's return
-values.
+`:handled`, and `:handler` bound to an anonymous function that calls
+the restart.
 
 ## `invoke-restart`
 Function signature:
@@ -102,12 +104,11 @@ If anything else, searches handler by object reference.
 Function signature:
 
 ```
-(invoke-debugger condition-object scope level)
+(invoke-debugger condition-object level)
 ```
 
 Invokes interactive debugger for given `condition-object`.  Accepts
-`scope` with bound restarts, and optional `level`, indicating current
-debugger depth.
+optional `level`, indicating current debugger depth.
 
 Restarts in the menu are ordered by their definition order and dynamic
 scope depth.  Restarts can be called by their number in the menu or
