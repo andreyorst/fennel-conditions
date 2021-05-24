@@ -167,7 +167,7 @@ See `error' for examples of how to handle conditions."
 
 (fn invoke-debugger* [condition-object]
   "Invokes debugger for given `condition-object` to call restarts from the interactive menu."
-  (invoke-debugger condition-object cs.restarts))
+  (invoke-debugger condition-object))
 
 (fn continue []
   "Invoke the `continue' restart bound automatically by `cerror' macro.
