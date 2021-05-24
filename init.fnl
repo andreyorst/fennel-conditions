@@ -188,6 +188,7 @@ Transfers control flow to handler function when executed."
   {:_DESCRIPTION "Condition system for the Fennel language.
 
 This module provides a set of functions for control transfer, that
-implement Common Lisp-inspired condition system for the Fennel language."}})
+implement Common Lisp-inspired condition system for the Fennel language."
+   :_MODULE_NAME "fennel-conditions"}})
 
 ; LocalWords:  unhandled

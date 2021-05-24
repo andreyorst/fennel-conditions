@@ -1,4 +1,10 @@
 # Condition-system.fnl (v0.0.11-dev)
+Condition system for Fennel language.
+
+This module is library's private API that provides functions meant for
+internal use only.  For public API docs see
+[fennel-conditions.md](../fennel-conditions.md) and
+[macros.md](../macros.md)
 
 **Table of contents**
 
@@ -18,7 +24,7 @@ Dynamic scope for the condition system.
 Dynamic scope is a maintained table where handlers and restarts are
 stored thread-locally.  Thread name is obtained with
 `coroutine.running` call and each thread holds a table with the
-following keys `:handlers`, `:restarts`, and `:current-scope`.
+following keys `:handlers`, `:restarts`, and `:current-context`.
 Handlers and restarts itselves are tables.
 
 ## `raise`

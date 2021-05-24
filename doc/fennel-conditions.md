@@ -1,4 +1,4 @@
-# Init.fnl (v0.0.11-dev)
+# Fennel-conditions (v0.0.11-dev)
 Condition system for the Fennel language.
 
 This module provides a set of functions for control transfer, that

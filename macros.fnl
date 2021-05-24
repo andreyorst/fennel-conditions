@@ -3,31 +3,32 @@
       :impl.condition-system))
 
 (fn current-thread []
-;;; Returns the name of current thread when possible
+  ;; Returns name of the current thread if possible, otherwise returns
+  ;; `:main`
   `(or (and coroutine
             coroutine.running
             (tostring (coroutine.running)))
        :main))
 
 (fn function-form? [form]
-;;; Checks if list evaluates to function
+  ;; Check if `form` evaluates to a function
   (when (list? form)
     (let [[f name? arglist] form]
       (if (or (= 'fn f) (= 'lambda f) (= 'λ f))
           (if (sym? name?)
-              (sequence? arglist)
-              (sequence? name?))
+              (and (sequence? arglist) true)
+              (and (sequence? name?) true))
           (= 'hashfn f)))))
 
 (fn seq-to-table [seq]
-;;; Transform sequential bindings into associative table.
-;;; [:a 1 :b 2] => {:a 1 :b 2}
+  ;; Transform sequential bindings into associative table.
+  ;; [:a 1 :b 2] => {:a 1 :b 2}
   (let [tbl {}]
-    (for [i 1 (length seq) 2]
+    (for [i 1 seq.n 2]
       (tset tbl (. seq i) (. seq (+ i 1))))
     tbl))
 
-;; Condition library functions
+;;; Condition library macros
 
 (fn handler-bind [binding-vec ...]
   "Bind handlers to conditions.
@@ -55,16 +56,24 @@ Handlers executed but their return values are not used:
 
 To provide a return value use either `handler-case' or `restart-case'
 and `invoke-restart'."
+  ;; This will be a common pattern for `handler-bind`, `restart-case`,
+  ;; and `handler-case`.  A lot of stuff happens at compile time, and
+  ;; dynamic scope is constructed at compile time to avoid explicit
+  ;; iteration.  Because of it most variables are defined using
+  ;; `gensym` to be accessible at compile time to build code, and at
+  ;; runtime to access that code.
   (let [_ (sym :_)
         cs (gensym :condition-system)
         thread (gensym :thread)
         target (gensym :target)
+        scope (gensym :scope)
         binding-len (length binding-vec)
-        setup `(doto (. ,cs :dynamic-scope ,thread))]
+        setup `(doto ,scope)]
     (assert-compile (= (% binding-len 2) 0)
                     "expected even number of signal/handler bindings"
                     binding-vec)
-    ;; check each handler to be a symbol or a function definition
+    ;; check each handler to be a symbol or a function definition, and
+    ;; put a handler into dynamic scope constructor stored in `setup`
     (for [i binding-len 1 -2]
       (let [handler (. binding-vec i)]
         (assert-compile (or (sym? handler) (function-form? handler))
@@ -72,7 +81,7 @@ and `invoke-restart'."
                         handler)
         (table.insert
          setup
-         `(tset :handlers {:parent (. ,cs :dynamic-scope ,thread :handlers)
+         `(tset :handlers {:parent (. ,scope :handlers)
                            :target ,target
                            :handler-type :handler-bind
                            :handler {,(. binding-vec (- i 1))
@@ -80,23 +89,33 @@ and `invoke-restart'."
     `(let [,target {}
            ,thread ,(current-thread)
            ,cs (require ,condition-system)
-           ,_ (when (= nil (. ,cs :dynamic-scope ,thread))
-                (tset ,cs :dynamic-scope ,thread {:handlers {}
-                                                  :restarts {}}))
-           scope# (. ,cs :dynamic-scope ,thread)
-           orig-handlers# scope#.handlers
+           {:pack pack# :unpack unpack# :raise raise#} ,cs
+           ,scope (do (when (not (. ,cs :dynamic-scope ,thread))
+                        (tset ,cs :dynamic-scope ,thread {:handlers {}
+                                                          :restarts {}}))
+                      (. ,cs :dynamic-scope ,thread))
+           orig-handlers# (. ,scope :handlers)
            ,_ ,setup
-           cs# ,cs
-           (ok# res#) (pcall #(cs#.pack (do ,...)))]
-       (doto scope#
-         (tset :current-scope nil)
+           (ok# res#) (pcall #(pack# (do ,...)))]
+       ;; Reset current scope context after exiting user code, but
+       ;; before actually handling the condition in order to avoid
+       ;; infinity loops.
+       (doto ,scope
+         (tset :current-context nil)
          (tset :handlers orig-handlers#))
-       (if ok# (cs#.unpack res#)
+       (if ok# (unpack# res#)
            (match res#
-             {:state :handled :target ,target} (cs#.raise res#.type res#.condition-object)
+             ;; Handled conditions are re-raised because
+             ;; `handler-bind` requires exiting handler with
+             ;; `restart-case` or another error.
+             {:state :handled :target ,target}
+             (raise# res#.type res#.condition-object)
+             ;; Internal errors bubble up the dynamic scope until no
+             ;; handlers and restarts left, to make sure we can't
+             ;; catch those accidentally.
              {:state :error :message msg#}
-             (if (or scope#.handlers.parent
-                     scope#.restarts.parent)
+             (if (or (. ,scope :handlers :parent)
+                     (. ,scope :restarts :parent))
                  (_G.error res#)
                  (_G.error msg# 2))
              ,_ (_G.error res#))))))
@@ -121,67 +140,72 @@ Specifying two restarts for `:signal-condition`:
   (:some-restart [] :body)
   (:some-other-restart [] :body))
 ```"
-  (each [_ restart (ipairs [...])] ; check if all restarts are lists that define functions
-    (assert-compile (list? restart) "restarts must be defined as lists" restart)
-    (assert-compile (or (sequence? (. restart 2))) "expected parameter table" restart)
-    (assert-compile (or (= :string (type (. restart 1)))) "restart name must be a string" restart))
   (let [_ (sym :_)
         cs (gensym :condition-system)
         thread (gensym :thread)
         target (gensym :target)
-        restarts [...]
-        setup '(doto (. ,cs :dynamic-scope ,thread))]
-    (for [i (length restarts) 1 -1]
-      (let [[restart & fn-tail] (. restarts i)
-            [args descr body] fn-tail
-            restart {:restart (list 'fn (unpack fn-tail))
-                     :name restart
-                     :description (when (and (= :string (type descr))
-                                             (not= nil body))
-                                    descr)
-                     :args (when (not= nil (next args))
-                             (icollect [_ v (ipairs args)]
-                               (view v {:one-line? true})))}]
-        (table.insert setup `(tset :restarts {:parent (. ,cs :dynamic-scope ,thread :restarts)
-                                              :target ,target
-                                              :restart ,restart}))))
+        scope (gensym :scope)
+        restarts (table.pack ...)
+        setup `(doto ,scope)]
+    (for [i restarts.n 1 -1]
+      (let [[restart & fn-tail] (. restarts i)]
+        (assert-compile (list? (. restarts i)) "restarts must be defined as lists" restart)
+        (assert-compile (or (sequence? (. fn-tail 1))) "expected parameter table" restart)
+        (assert-compile (or (= :string (type restart))) "restart name must be a string" restart)
+        (let [[args descr body] fn-tail
+              restart {:restart (list 'fn (unpack fn-tail))
+                       :name restart
+                       :description (when (and (= :string (type descr))
+                                               (not= nil body))
+                                      descr)
+                       :args (when (not= nil (next args))
+                               (icollect [_ v (ipairs args)]
+                                 (view v {:one-line? true})))}]
+          (table.insert setup `(tset :restarts {:parent (. ,scope :restarts)
+                                                :target ,target
+                                                :restart ,restart})))))
     `(let [,target {}
            ,thread ,(current-thread)
            ,cs (require ,condition-system)
-           ,_ (when (= nil (. ,cs :dynamic-scope ,thread))
-                (tset ,cs :dynamic-scope ,thread {:handlers {}
-                                                  :restarts {}}))
-           scope# (. ,cs :dynamic-scope ,thread)
-           orig-restarts# scope#.restarts
+           {:pack pack# :unpack unpack# :raise raise#} ,cs
+           ,scope (do (when (not (. ,cs :dynamic-scope ,thread))
+                        (tset ,cs :dynamic-scope ,thread {:handlers {}
+                                                          :restarts {}}))
+                      (. ,cs :dynamic-scope ,thread))
+           orig-restarts# (. ,scope :restarts)
            ,_ ,setup
-           restarts# scope#.restarts
-           cs# ,cs
-           (ok# res#) (pcall #(cs#.pack (do ,expr)))]
-       (doto scope#
+           restarts# (. ,scope :restarts)
+           (ok# res#) (pcall #(pack# (do ,expr)))]
+       (doto ,scope
          (tset :restarts orig-restarts#)
-         (tset :current-scope nil))
-       (if ok# (cs#.unpack res#)
+         (tset :current-context nil))
+       (if ok# (unpack# res#)
            (match res#
              {:state :restarted :target ,target} (res#.restart)
              {:state :restarted} (_G.error res#)
              {:state :error :message msg#}
-             (if (or scope#.handlers.parent
-                     scope#.restarts.parent)
+             (if (or (. ,scope :handlers :parent)
+                     (. ,scope :restarts :parent))
                  (_G.error res#)
                  (_G.error msg# 2))
-             ,_ (let [(,_ res2#) (do (tset scope# :restarts restarts#)
-                                     (pcall cs#.raise :error res#))]
-                  (doto scope#
+             ;; Encountered Lua error, we restore bound restarts, and
+             ;; try to handle it as a condition.  Mostly repeats what
+             ;; was done for a condition
+             ,_ (let [(,_ res2#) (do (tset ,scope :restarts restarts#)
+                                     (pcall raise# :error res#))]
+                  (doto ,scope
                     (tset :restarts orig-restarts#)
-                    (tset :current-scope nil))
+                    (tset :current-context nil))
                   (match res2#
                     {:state :restarted :target ,target} (res2#.restart)
                     {:state :restarted} (_G.error res2#)
                     {:state :error :message msg2#}
-                    (if (or scope#.handlers.parent
-                            scope#.restarts.parent)
+                    (if (or (. ,scope :handlers :parent)
+                            (. ,scope :restarts :parent))
                         (_G.error res2#)
                         (_G.error msg2# 2))
+                    ;; If Lua error was not handled, we throw it
+                    ;; instead of fail result from the handler
                     ,_ (_G.error res#))))))))
 
 (fn handler-case [expr ...]
@@ -210,42 +234,48 @@ Handling `error' condition:
   (let [_ (sym :_)
         target (gensym :target)
         thread (gensym :thread)
+        scope (gensym :scope)
         cs (gensym :condition-system)
-        handlers [...]
-        setup `(doto (. ,cs :dynamic-scope ,thread))]
-    (for [i (length handlers) 1 -1]
+        handlers (table.pack ...)
+        setup `(doto ,scope)]
+    (for [i handlers.n 1 -1]
       (let [handler (. handlers i)]
         (assert-compile (list? handler) "handlers must be defined as lists" handler)
         (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
-        (table.insert setup `(tset :handlers {:parent (. ,cs :dynamic-scope ,thread :handlers)
+        (table.insert setup `(tset :handlers {:parent (. ,scope :handlers)
                                               :target ,target
                                               :handler-type :handler-case
                                               :handler {,(. handler 1) ,(list 'fn (unpack handler 2))}}))))
     `(let [,target {}
            ,thread ,(current-thread)
            ,cs (require ,condition-system)
-           ,_ (when (= nil (. ,cs :dynamic-scope ,thread))
-                (tset ,cs :dynamic-scope ,thread {:handlers {}
-                                                  :restarts {}}))
-           scope# (. ,cs :dynamic-scope ,thread)
-           orig-handlers# scope#.handlers
+           {:pack pack#
+            :unpack unpack#
+            :raise raise#
+            :find-handler find-handler#} ,cs
+           ,scope (do (when (not (. ,cs :dynamic-scope ,thread))
+                        (tset ,cs :dynamic-scope ,thread {:handlers {}
+                                                          :restarts {}}))
+                      (. ,cs :dynamic-scope ,thread))
+           orig-handlers# (. ,scope :handlers)
            ,_ ,setup
-           handlers# scope#.handlers
-           cs# ,cs
-           (ok# res#) (pcall #(cs#.pack (do ,expr)))]
-       (doto scope#
+           handlers# (. ,scope :handlers)
+           (ok# res#) (pcall #(pack# (do ,expr)))]
+       (doto ,scope
          (tset :handlers orig-handlers#)
-         (tset :current-scope nil))
-       (if ok# (cs#.unpack res#)
+         (tset :current-context nil))
+       (if ok# (unpack# res#)
            (match res#
              {:state :handled :target ,target :handler handler#} (handler#)
              {:state :error :message msg#}
-             (if (or scope#.handlers.parent
-                     scope#.restarts.parent)
+             (if (or (. ,scope :handlers :parent)
+                     (. ,scope :restarts :parent))
                  (_G.error res#)
                  (_G.error msg# 2))
              {:state :handled} (_G.error res#)
-             ,_ (match (cs#.find-handler res# :error handlers#)
+             ;; In case Lua error was raised we reuse handlers defined
+             ;; within this `handler-case` and up the dynamic scope.
+             ,_ (match (find-handler# res# :error handlers#)
                   {:handler handler#} (handler# res#)
                   ,_ (_G.error res#)))))))
 
@@ -275,7 +305,7 @@ Altering condition's printable name:
 ```"
   (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-object)
   (let [allowed-options {:parent true :name true}
-        options (seq-to-table [...])
+        options (seq-to-table (table.pack ...))
         condition-object {:name (tostring condition-symbol) :type :condition}]
     (each [k (pairs options)]
       (assert-compile (. allowed-options k) (.. "invalid key: " (tostring k)) k))
@@ -316,8 +346,8 @@ Convert `x` to positive value if it is negative:
   (assert-compile (not= 'nil condition-object)
                   "condition-object must not be nil"
                   condition-object)
-  `(restart-case (let [cs# (require ,condition-system)]
-                   (cs#.raise :error ,condition-object))
+  `(restart-case (let [{:raise raise#} (require ,condition-system)]
+                   (raise# :error ,condition-object))
      (:fennel-conditions/continue [] ,continue-description nil)))
 
 (fn ignore-errors [...]
@@ -325,18 +355,17 @@ Convert `x` to positive value if it is negative:
 returns nil and condition as values.  If no error conditions were
 raised, returns the resulting values normally.  Lua errors can be
 handled with this macro."
-  `(let [cs# (require ,condition-system)]
-     (handler-case (do ,...)
-       (:fennel-conditions/error [c#] (values nil c#)))))
+  `(handler-case (do ,...)
+     (:fennel-conditions/error [c#] (values nil c#))))
 
 (fn unwind-protect [expr ...]
   "Runs `expr` in protected call, and runs all other forms as cleanup
 forms before returning value, whether `expr` returned normally or
 error occurred."
-  `(let [cs# (require ,condition-system)]
-     (let [(ok# res#) (pcall #(cs#.pack (do ,expr)))]
+  `(let [{:pack pack# :unpack unpack#} (require ,condition-system)]
+     (let [(ok# res#) (pcall #(pack# (do ,expr)))]
        (if ok#
-           (do (do ,...) (cs#.unpack res#))
+           (do (do ,...) (unpack# res#))
            (do (do ,...) (_G.error res#))))))
 
 (setmetatable
