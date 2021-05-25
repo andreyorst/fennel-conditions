@@ -89,8 +89,8 @@
     (assert-eq
      "Debugger was invoked on unhandled condition: \"foo\"
 restarts (invokable by number or by name):
-1: [restart] restart-doc
-2: [throw  ] Throw condition as a Lua error
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
 debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
   unknown global in strict mode: a
@@ -102,12 +102,12 @@ debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compil
 * Try moving this code to somewhere that a is in scope.
 * Try binding a as a local in the scope of this code.\"
 restarts (invokable by number or by name):
-1: [restart] restart-doc
-2: [cancel ] Return to level 1 debugger
-3: [throw  ] Throw condition as a Lua error
+  1: [restart] restart-doc
+  2: [cancel ] Return to level 1 debugger
+  3: [throw  ] Throw condition as a Lua error
 debugger>> restarts (invokable by number or by name):
-1: [restart] restart-doc
-2: [throw  ] Throw condition as a Lua error
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
 debugger:restart>> "
      (with-stderr-to-str
