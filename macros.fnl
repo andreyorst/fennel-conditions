@@ -21,7 +21,7 @@
           (= 'hashfn f)))))
 
 (fn seq-to-table [seq]
-  ;; Transform sequential bindings into associative table.
+  ;; Transform binding sequence into associative table.
   ;; [:a 1 :b 2] => {:a 1 :b 2}
   (let [tbl {}]
     (for [i 1 seq.n 2]
@@ -34,17 +34,20 @@
   "Bind handlers to conditions.
 
 `binding-vec' is a sequential table of conditions and their respecting
-handlers followed by the body expression.  Each handler is a function
-of at least one argument - the condition being handled.  Other arguments
-are optional, and can be used inside the handler.
+handlers followed by the body expression.  Each handler should be a
+function of at least one argument - the condition being handled.
+Other arguments are optional, and can be used inside the handler.
 
-If body expression raises a condition, a bound handler is invoked.
-If no handler were bound for condition, condition is thrown as a
-Lua error.
+If body expression raises a condition, and a handler is bound for this
+condition, the handler is invoked.  If no handler were bound for
+condition, handlers are searched up the dynamic scope. If no handler
+found, condition is thrown as a Lua error.
 
-If handler exits normally a condition
+If invoked handler exits normally, a condition is re-raised.  To
+prevent re-raising, use `invoke-restart' function.
 
 # Examples
+
 Handlers executed but their return values are not used:
 
 ``` fennel
@@ -54,8 +57,8 @@ Handlers executed but their return values are not used:
    (signal :error-condition)))
 ```
 
-To provide a return value use either `handler-case' or `restart-case'
-and `invoke-restart'."
+To provide a return value use either `handler-case' or a combination
+of `restart-case' and `invoke-restart'."
   ;; This will be a common pattern for `handler-bind`, `restart-case`,
   ;; and `handler-case`.  A lot of stuff happens at compile time, and
   ;; dynamic scope is constructed at compile time to avoid explicit
@@ -122,23 +125,25 @@ and `invoke-restart'."
 
 (fn restart-case [expr ...]
   "Resumable condition restart point.
+
 Accepts expression `expr' and restarts that can be used when handling
 conditions thrown from within the expression.  Similarly to
-`handler-case' restarts are lists with condition and fn-tail.
+`handler-case' restarts are lists with restart name, and an fn-tail.
 
 If expression or any of it's subsequent expressions raises a
 condition, it will be possible to return into the `restart-case', and
 execute one of the provided restarts.  Restarts can be executed with
-the `invoke-restart' macro only from handlers bound with
-`handler-bind'.  Restart names are always strings.
+the `invoke-restart' function from handlers bound with `handler-bind'.
+Restart names are always strings.
 
 # Examples
+
 Specifying two restarts for `:signal-condition`:
 
 ``` fennel
 (restart-case (signal :signal-condition)
   (:some-restart [] :body)
-  (:some-other-restart [] :body))
+  (:some-other-restart [] :other-body))
 ```"
   (let [_ (sym :_)
         cs (gensym :condition-system)
@@ -211,13 +216,13 @@ Specifying two restarts for `:signal-condition`:
 (fn handler-case [expr ...]
   "Condition handling similar to try/catch.
 
-Accepts expression `expr' and handlers that can be used when handling
-conditions, raised from within the expression.  Provides the facility
-to catch named conditions raised with `signal', `warn` and `error'
-functions.  If any condition is raised, before propagating condition
-to error, a handler is searched.  If handler is bound for this
-condition, it is executed, and the result of `handler-case' expression
-will be result of the handler.
+Accepts expression `expr' and handlers that can be used to handle
+conditions, raised from within the expression or any subsequent
+expressions.  Provides the facility to catch named conditions raised
+with `signal', `warn` and `error' functions.  If any condition is
+raised, before propagating condition to error, a handler is searched.
+If handler is bound for this condition, it is executed, and the result
+of `handler-case' expression will be the result of the handler.
 
 Handlers are defined as lists, where the first object represents the
 condition to handle, and the rest is fn-tail - a sequential table of
@@ -288,20 +293,30 @@ conditions will be derived with `make-condition'.  Accepts additional
 Creating `error` condition:
 
 ``` fennel
-(define-condition error)
+(define-condition err)
 ```
 
 Creating `simple-error` condition with parent set to `error` condition:
 
 ``` fennel
-(define-condition error)
-(define-condition simple-error :parent error)
+(define-condition err)
+(define-condition simple-err :parent err)
 ```
 
 Altering condition's printable name:
 
 ``` fennel
 (define-condition dbze :name \"divide by zero error\")
+```
+
+Handling inherited condition with its parent condition:
+
+``` fennel
+(define-condition err)
+(define-condition simple-err :parent err)
+
+(assert-is (handler-case (error simple-err)
+             (err [] :ok)))
 ```"
   (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-object)
   (let [allowed-options {:parent true :name true}
@@ -317,13 +332,13 @@ Altering condition's printable name:
                                   (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
-  "Raise `condition-object' as an error with continue restart described by `continue-description'.
+  "Raise `condition-object' as an error with auto-bound continue restart, described by `continue-description'.
 
 Similarly to `error', `cerror' raises condition as an error, but
 automatically binds the `continue' restart, which can be used either
 with the `continue' function in the handler, or in the interactive
-debugger.  The `continue-description' is a string, describing what
-will happen if `continue' restart is invoked.
+debugger.  The `continue-description' must be a string, describing
+what will happen if `continue' restart is invoked.
 
 # Examples
 
@@ -338,7 +353,7 @@ Convert `x` to positive value if it is negative:
   (math.sqrt x))
 
 (handler-bind [:neg-sqrt (fn [] (continue))]
-  (sqrt -4))
+  (assert-eq 2 (sqrt -4)))
 ```"
   (assert-compile (= :string (type continue-description))
                   "continue-description must be a string"
@@ -354,14 +369,47 @@ Convert `x` to positive value if it is negative:
   "Ignore all conditions of type error.  If error condition was raised,
 returns nil and condition as values.  If no error conditions were
 raised, returns the resulting values normally.  Lua errors can be
-handled with this macro."
+handled with this macro.
+
+# Examples
+
+Condition of type error is ignored:
+
+``` fennel
+(local result [])
+
+(local (res condition)
+  (ignore-errors
+    (table.insert result 1)
+    (table.insert result 2)
+    (error :some-error)
+    (table.insert result 3)))
+
+(assert-not res)
+(assert-eq :some-error condition)
+(assert-eq [1 2] result)
+```"
   `(handler-case (do ,...)
      (:fennel-conditions/error [c#] (values nil c#))))
 
 (fn unwind-protect [expr ...]
   "Runs `expr` in protected call, and runs all other forms as cleanup
 forms before returning value, whether `expr` returned normally or
-error occurred."
+error occurred.  Similar to try/finally without a catch.
+
+# Examples
+
+``` fennel
+(local result [])
+
+(ignore-errors
+  (unwind-protect
+      (/ 1 nil)
+    (table.insert result 1)
+    (table.insert result 2)))
+
+(assert-eq [1 2] result)
+```"
   `(let [{:pack pack# :unpack unpack#} (require ,condition-system)]
      (let [(ok# res#) (pcall #(pack# (do ,expr)))]
        (if ok#

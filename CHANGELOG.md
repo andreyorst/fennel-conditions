@@ -1,3 +1,9 @@
+## fennel-conditions v0.1.0-rc1 (2021-05-25)
+
+- Condition system is now thread safe, meaning that coroutines are isolated from main thread and each other.
+- More stuff happens at compile time.
+- No more breaking changes should happen in the foreseeable future.
+
 ## fennel-conditions v0.0.10 (2021-05-13)
 
 - Fix bug in `unwind-protect` only executing first form.

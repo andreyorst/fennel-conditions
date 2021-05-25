@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.0.11-dev)
+# Condition-system.fnl (0.1.0-rc1)
 Condition system for Fennel language.
 
 This module is library's private API that provides functions meant for

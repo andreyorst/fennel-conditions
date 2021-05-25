@@ -1,6 +1,6 @@
 LUA ?= lua
 FENNEL ?= fennel
-VERSION ?= $(shell git describe --abbrev=0)
+VERSION ?=
 FNLSOURCES = $(wildcard impl/*.fnl) init.fnl
 FNLMACROS = macros.fnl
 FNLTESTS = $(wildcard tests/*.fnl)
@@ -61,7 +61,11 @@ luacov-console: clean build $(LUATESTS)
 
 doc:
 ifdef FENNELDOC
+ifdef VERSION
 	fenneldoc --project-version $(VERSION) --config $(FNLMACROS) $(FNLSOURCES)
+else
+	fenneldoc $(FNLMACROS) $(FNLSOURCES)
+endif
 else
 	@echo "" >&2
 	@echo "fenneldoc is not installed" >&2
