@@ -183,7 +183,7 @@ thing."
                              (.. pad "   "))
             number-pad (string.rep " " (+ 1 (- max-number-width (length (tostring i)))))]
         (io.stderr:write
-         i ":" number-pad restart-name
+         "  " i ":" number-pad restart-name
          (if description
              (description:gsub "\n" " ")
              name)
