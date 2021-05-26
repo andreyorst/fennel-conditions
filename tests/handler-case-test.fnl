@@ -1,5 +1,5 @@
 (require-macros :fennel-test.test)
-(local {: error : warn : signal : make-condition} (require :init))
+(local {: error : warn : signal : make-condition &as cs} (require :init))
 (require-macros :macros)
 
 (macro with-no-stderr [expr]
@@ -12,6 +12,13 @@
      (let [res# (table.pack ,expr)]
        (tset stderr-mt# :write write#)
        (table.unpack res# 1 res#.n))))
+
+(deftest runtime-check
+  (testing "invalid handler-case"
+    (let [(ok? msg) (pcall #(handler-case :ok
+                              (nil [] :bad)))]
+      (assert-not ok?)
+      (assert-is (msg:match "condition object must not be nil")))))
 
 (deftest handling-base
   (testing "throwing condtion"
@@ -140,13 +147,13 @@
 (deftest lua-errors
   (testing "handling lua errors"
     (assert-eq :ok (handler-case (* 1 nil)
-                     (:fennel-conditions/error [] :ok)))
+                     (cs.Error [] :ok)))
     (assert-eq :ok (handler-case (* 1 nil)
-                     (:fennel-conditions/condition [] :ok)))
+                     (cs.Condition [] :ok)))
 
     (assert-eq :ok (handler-case (restart-case (* 1 nil)
                                    (:r [] :bad))
-                     (:fennel-conditions/error [] :ok)))))
+                     (cs.Error [] :ok)))))
 
 (deftest rethrowing
   (testing "throwing condition from handler"
@@ -160,5 +167,5 @@
     (let [res []]
       (assert-eq :ok (handler-case (handler-case (error :err)
                                      (:err [c] (table.insert res "error") (* 1 nil)))
-                       (:fennel-conditions/error [c] (table.insert res "catch") :ok)))
+                       (cs.Error [c] (table.insert res "catch") :ok)))
       (assert-eq res ["error" "catch"]))))

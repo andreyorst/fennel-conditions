@@ -10,7 +10,7 @@
                      (:r [a] a))))
   (testing "continue restart"
     (assert-eq :ok (restart-case (continue)
-                     (:fennel-conditions/continue [] :ok))))
+                     (:continue [] :ok))))
 
   (testing "first restart is called"
     (assert-eq :ok (restart-case (invoke-restart :r)

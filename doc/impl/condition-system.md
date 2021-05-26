@@ -1,4 +1,4 @@
-# Condition-system.fnl (0.1.0-rc1)
+# Condition-system.fnl (v0.1.0-rc2)
 Condition system for Fennel language.
 
 This module is library's private API that provides functions meant for
@@ -12,6 +12,9 @@ internal use only.  For public API docs see
 - [`raise`](#raise)
 - [`handle`](#handle)
 - [`invoke-restart`](#invoke-restart)
+- [`Condition`](#condition)
+- [`Error`](#error)
+- [`Warning`](#warning)
 - [`compose-error-message`](#compose-error-message)
 - [`find-handler`](#find-handler)
 - [`invoke-debugger`](#invoke-debugger)
@@ -65,6 +68,15 @@ restart is found, calls the restart function and returns a table with
 `:state` set to `:restarted`, and `:restart` bound to the restart
 function.
 
+## `Condition`
+Condition object that acts as a base for all conditions.
+
+## `Error`
+Condition object that acts as a base for all error conditions.
+
+## `Warning`
+Condition object that acts as a base for all warning conditions.
+
 ## `compose-error-message`
 Function signature:
 
@@ -76,6 +88,7 @@ Composes message for `condition-object` based on it's name and data
 stored within the object.
 
 ### Examples
+
 Conditions without data produce short messages:
 
 ``` fennel
@@ -148,8 +161,8 @@ debugger:some-restart>> (+ 1 2 3) {:some :table}
 Debugger doesn't know anything about the environment, or variables, so
 in this prompt only fully realized values can be used.
 
-If an error happens during restart call, debug level increases, and new
-`cancel` restart is added to the menu, that allows returning to
+If an error happens during restart call, debug level increases, and
+new `cancel` restart is added to the menu, that allows returning to
 previous debug level.
 
 ## `pack`

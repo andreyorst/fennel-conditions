@@ -1,5 +1,5 @@
 (require-macros :fennel-test.test)
-(local {: error : warn : signal : invoke-restart : continue} (require :init))
+(local {: error : warn : signal : invoke-restart : continue &as cs} (require :init))
 (require-macros :macros)
 
 
@@ -9,7 +9,7 @@
       (assert-eq :ok (handler-case
                          (handler-bind [:error (fn [] (table.insert res "bind"))]
                            (error :error))
-                       (:fennel-conditions/error [] (table.insert res "case") :ok)))
+                       (cs.Error [] (table.insert res "case") :ok)))
       (assert-eq ["bind" "case"] res)))
 
   (testing "restart throws error"

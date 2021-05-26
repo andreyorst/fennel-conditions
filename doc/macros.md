@@ -1,4 +1,4 @@
-# Macros.fnl (0.1.0-rc1)
+# Macros.fnl (v0.1.0-rc2)
 Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common
@@ -149,36 +149,27 @@ Function signature:
 
 Create base condition object with `condition-symbol` from which
 conditions will be derived with `make-condition`.  Accepts additional
-`:parent` and `:name` key value pairs.
+`:parent` and `:name` key value pairs.  If no `:name` specified, uses
+`condition-symbol`'s `tostring` representation.  If no `:parent` given
+uses `Condition` object as a parent.
 
 ### Examples
-Creating `error` condition:
-
-``` fennel
-(define-condition err)
-```
-
-Creating `simple-error` condition with parent set to `error` condition:
-
-``` fennel
-(define-condition err)
-(define-condition simple-err :parent err)
-```
 
 Altering condition's printable name:
 
 ``` fennel
-(define-condition dbze :name "divide by zero error")
+(define-condition dbz :name :divide-by-zero)
 ```
 
-Handling inherited condition with its parent condition:
+Creating `math-error` condition with parent set to `Error` condition,
+and `divide-by-zero` condition with parent set to `math-error`, and handling it:
 
 ``` fennel
-(define-condition err)
-(define-condition simple-err :parent err)
+(define-condition math-error :parent Error)
+(define-condition divide-by-zero :parent math-error)
 
-(assert-is (handler-case (error simple-err)
-             (err [] :ok)))
+(assert-eq :ok (handler-case (error divide-by-zero)
+                 (math-error [] :ok)))
 ```
 
 ## `ignore-errors`
