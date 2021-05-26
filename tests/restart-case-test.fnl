@@ -1,5 +1,5 @@
 (require-macros :fennel-test.test)
-(local {: invoke-restart : continue} (require :init))
+(local {: invoke-restart : continue : find-restart : error} (require :init))
 (require-macros :macros)
 
 (deftest calling-restarts-without-handlers
@@ -21,3 +21,14 @@
                      (:f [] :bad)
                      (:r [] :ok)
                      (:r [] :bad)))))
+
+(deftest finding-restarts
+  (testing "find restarts from the handler"
+    (assert-eq :ok (handler-bind [:err (fn [] (when (find-restart :restart)
+                                                (invoke-restart :restart)))]
+                     (restart-case (error :err)
+                       (:restart [] :ok)))))
+
+  (testing "Find restart from within restart-case"
+    (assert-eq :restart (restart-case (find-restart :restart)
+                          (:restart []  :ok)))))

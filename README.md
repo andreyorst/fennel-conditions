@@ -2,13 +2,8 @@
 
 Common Lisp inspired condition system for Fennel language.
 
-This library implements thread safe resumable exception model for Fennel language.
-It is based on the idea of leveraging tables to implement stacks of pseudo-dynamic scopes.
-
-**Note:** This is not a one-to-one port of Common Lisp's condition system, rather an adaptation of the idea in a way that is meaningful for Fennel and Lua runtime.
-There is no implementation of `block`, `tagbody`, `go`, `return-from`, and possibly other constructs from Common Lisp, on which condition system is built on.
-There's no `restart-bind`, only `restart-case` is implemented.
-Macros and function names are mostly the same as in Common Lisp, and run-time semantics should be similar, but the syntax is slightly altered to match Fennel's own syntax.
+This library implements thread safe resumable exception model for Fennel language and the Lua runtime.
+It is based on the idea of leveraging tables to implement a dynamic scope.
 
 This library is a work in progress.
 All updates up to 0.1.0 can be considered breaking.
@@ -22,25 +17,33 @@ Clone this repository into your project:
 ## Usage
 
 This library provides it's public API in two files: `init.fnl` and `macros.fnl`.
-`init.fnl` module defines functions `error`, `warn`, `signal`, `invoke-restart`, and `make-condition`.
+`init.fnl` module defines functions `error`, `warn`, `signal`, `find-restart`, `invoke-restart`, `invoke-debugger`, `continue`, `make-condition`, and exports predefined condition objects `Condition`, `Warning`, and `Error`.
 `macros.fnl` module provides `restart-case`, `handler-bind`, `handler-case`, `cerror`, `define-condition`, `ignore-errors`, and `unwind-protect` macros.
 
-Every condition derives from `fennel-conditions/condition` type.
-Errors automatically derive from both `fennel-conditions/condition` and `fennel-conditions/error`.
-Warnings automatically derive from both `fennel-conditions/condition` and `fennel-conditions/warning`.
+Every condition derives from `Condition` type.
+Errors automatically derive from both `Condition` and `Error`.
+Warnings automatically derive from both `Condition` and `Warning`.
 
 Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be included in order to use this library in resulting Lua application.
 See [`--require-as-include`](https://fennel-lang.org/reference#include) flag in compiler options.
 
+### Differences from Common Lisp
+
+This is not a one-to-one port of Common Lisp's condition system, rather an adaptation of the idea in a way that is meaningful for Fennel language, and the Lua runtime.
+There is no implementation of `block`, `tagbody`, `go`, `return-from`, and possibly other constructs from Common Lisp, on which condition system is built on.
+These constructs may be added in the future, but it is not a high priority.
+There's no `restart-bind`, only `restart-case` is implemented.
+Macros and function names are mostly the same as in Common Lisp, and runtime semantics should be similar, but the syntax is slightly altered to match Fennel's own syntax.
+
 ### Note on the `_G.error` and `pcall`
 
-While this library provides resumable exception model, it is still based on combination of `pcall` and `error`.
+While this library provides resumable exception model, it is still internally based on combination of `pcall` and `error`.
 Each macro that handles conditional situations wraps its body in `pcall`, and ensures that conditions are handled.
-Unhandled conditions bubble up the dynamic scope, and are converted to Lua errors if no parent dynamic scope is found, thus can be caught with `pcall`.
+Unhandled conditions bubble up the dynamic scope stack, and are converted to Lua errors if no parent dynamic scope is found, thus can be caught with `pcall`.
 But this style should be avoided, and appropriate handlers should be registered with `handler-case` or `handler-bind`.
 
 This library provides it's own `error` function meant as a replacement to Lua's `error`, but the library itself still internally uses the `_G.error` (i.e. original Lua `error`) function to transfer control.
-Therefore it is strongly recommended to avoid overriding `_G.error`.
+Therefore it is strongly not recommended to override `_G.error`.
 You should absolutely not set `_G.error` to the `error` function provided by this library, as it will create infinite loops.
 
 ## Documentation

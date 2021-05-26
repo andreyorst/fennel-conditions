@@ -15,6 +15,7 @@ language.
 - [`Condition`](#condition)
 - [`Error`](#error-1)
 - [`Warning`](#warning)
+- [`find-restart`](#find-restart)
 - [`invoke-debugger`](#invoke-debugger)
 - [`make-condition`](#make-condition)
 
@@ -229,6 +230,17 @@ Condition object that acts as a base for all error conditions.
 
 ## `Warning`
 Condition object that acts as a base for all warning conditions.
+
+## `find-restart`
+Function signature:
+
+```
+(find-restart restart-name)
+```
+
+Searches `restart-name` in the dynamic scope.
+
+If restart is found, returns its name.
 
 ## `invoke-debugger`
 Function signature:

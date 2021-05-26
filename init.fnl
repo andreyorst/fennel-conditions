@@ -2,9 +2,11 @@
         : invoke-restart
         : pack
         : invoke-debugger
+        : find-restart
         : Condition
         : Warning
-        : Error}
+        : Error
+        : dynamic-scope}
   ;; Constructing relative path
   (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
                :impl.condition-system)))
@@ -226,11 +228,26 @@ Must be used only within the dynamic scope of `restart-case'.
 Transfers control flow to handler function when executed."
   (invoke-restart :continue))
 
+(fn find-restart* [restart-name]
+  "Searches `restart-name' in the dynamic scope.
+
+If restart is found, returns its name."
+  (when (find-restart
+         restart-name
+         (?. dynamic-scope
+             (or (and coroutine
+                      coroutine.running
+                      (tostring (coroutine.running)))
+                 :main)
+             :restarts))
+    restart-name))
+
 (setmetatable
  {:error error*
   : signal
   : warn
   : make-condition
+  :find-restart find-restart*
   :invoke-restart invoke-restart*
   :invoke-debugger invoke-debugger*
   : continue

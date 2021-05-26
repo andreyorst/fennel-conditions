@@ -17,6 +17,7 @@ internal use only.  For public API docs see
 - [`Warning`](#warning)
 - [`compose-error-message`](#compose-error-message)
 - [`find-handler`](#find-handler)
+- [`find-restart`](#find-restart)
 - [`invoke-debugger`](#invoke-debugger)
 - [`pack`](#pack)
 - [`unpack`](#unpack)
@@ -118,6 +119,15 @@ Finds the `condition-object` handler of `type*` in dynamic scope
 `scope`.  If `condition-object` is a table with `type` key equal to
 `:condition` searches handler based on condition object's inheritance.
 If anything else, searches handler by object reference.
+
+## `find-restart`
+Function signature:
+
+```
+(find-restart restart-name scope)
+```
+
+Searches `restart-name` in dynamic scope `scope`.
 
 ## `invoke-debugger`
 Function signature:

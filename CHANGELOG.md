@@ -1,8 +1,21 @@
+## fennel-conditions v0.1.0-rc2 (2021-05-26)
+
+- Rename `fennel-conditions/use-debugger?` to `condition-system-use-debugger?`.
+- Default conditions used for inheritance are no longer string based, but a proper condition objects:
+  `:fennel-conditions/condition` -> `Condition`,
+  `:fennel-conditions/error` -> `Error`,
+  `:fennel-conditions/warning` -> `Warning`.
+- Inbuilt library restarts no longer names specially:
+  `:fennel-conditions/continue` -> `:continue`,
+  `:fennel-conditions/throw` -> `:throw`,
+  `:fennel-conditions/cancel` -> `:cancel`.
+- Added `find-restart` function.
+
 ## fennel-conditions v0.1.0-rc1 (2021-05-25)
 
 - Condition system is now thread safe, meaning that coroutines are isolated from main thread and each other.
 - More stuff happens at compile time.
-- No more breaking changes should happen in the foreseeable future.
+- ~~No more breaking changes should happen in the foreseeable future.~~
 
 ## fennel-conditions v0.0.10 (2021-05-13)
 

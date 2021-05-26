@@ -413,13 +413,11 @@ the restart."
 ;;; Restarts
 
 (fn find-restart [restart-name scope]
-  ;; Searches `restart-name' in dynamic scope `scope`.  Modifies the
-  ;; restart object, by setting it's `:target` field to the `scope`
-  ;; target.
+  "Searches `restart-name' in dynamic scope `scope`."
   (when scope
     (match (?. scope :restart)
       (where restart (= restart.name restart-name))
-      (doto restart (tset :target scope.target))
+      (values restart.restart scope.target)
       _ (find-restart restart-name scope.parent))))
 
 (fn invoke-restart [restart-name ...]
@@ -435,15 +433,14 @@ function."
                            (tset dynamic-scope thread {:handlers {} :restarts {}}))
                          (. dynamic-scope thread))]
     (_G.error (match (find-restart restart-name thread-scope.restarts)
-                {: restart : target} {:state :restarted
-                                      :restart #(restart (_unpack args))
-                                      :target target}
+                (restart target) {:state :restarted
+                                  :restart #(restart (_unpack args))
+                                  :target target}
                 _ (let [msg (.. "restart " (view restart-name) " is not found")]
                     (if thread-scope.current-context
                         {:state :error
                          :message msg}
                         msg))) 2)))
-
 
 ;;; Conditions
 
@@ -507,6 +504,7 @@ function."
   : invoke-restart
   : handle
   : find-handler
+  : find-restart
   : invoke-debugger
   : compose-error-message
   :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
