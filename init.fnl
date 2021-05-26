@@ -1,4 +1,10 @@
-(local {: raise : invoke-restart : pack : invoke-debugger &as cs}
+(local {: raise
+        : invoke-restart
+        : pack
+        : invoke-debugger
+        : Condition
+        : Warning
+        : Error}
   ;; Constructing relative path
   (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
                :impl.condition-system)))
@@ -13,8 +19,8 @@ argument, although it ignores the second argument, because the
 throwing semantics are different.  Like Lua's `error', this function
 will interrupt function execution where it was called, and no code
 after `error' will be executed.  If no handler bound for raised
-condition, it is promoted to a Lua error with detailed message
-about the unhandled condition and it's arguments, if any.
+condition, it is promoted to a Lua error with detailed message about
+the unhandled condition and it's arguments, if any.
 
 ```
 >> (error :condition-object)
@@ -24,11 +30,11 @@ stack traceback...
 
 Conditions support inheritance, and all conditions that are raised
 with the `error' function automatically derive from
-`:fennel-conditions/error` condition, and can be catched with handler
+`Error` condition, and can be catched with handler
 bound to this condition handlers.
 
 And all conditions automatically derive from
-`:fennel-conditions/condition` condition.
+`Condition` condition.
 
 Any Lua object can be a condition, and such conditions are handled by
 reference.  If more complex inheritance rules are required,
@@ -73,15 +79,15 @@ necessary need to be a part of the same lexical scope:
 ```
 
 Error conditions, and Lua errors can be handled by binding a handler
-to `:fennel-conditions/error` and `:fennel-conditions/condition`
+to `Error` and `Condition`
 conditions:
 
 ``` fennel
 (assert-eq 27 (handler-case (error :some-error-condition)
-                (:fennel-conditions/condition [] 27)))
+                (Condition [] 27)))
 
 (assert-eq 42 (handler-case (/ 1 nil)
-                (:fennel-conditions/error [] 42)))
+                (Error [] 42)))
 ```"
   (raise :error condition-object))
 
@@ -94,7 +100,7 @@ handler was found.  This function transfers control flow to the
 handler at the point where it was called but will continue execution
 if handler doesn't transfer control flow.
 
-Signals derive from `:fennel-conditions/condition`, and can be catched
+Signals derive from `Condition`, and can be catched
 with this handler.
 
 # Examples
@@ -125,13 +131,14 @@ See `error' for more examples on how to handle conditions."
 
 (fn warn [condition-object]
   "Raise `condition-object' as a warning.
-Warnings are not thrown as errors when no handler is bound but their
-message is printed to standard error out.  Same to `signal', the control is
-temporarily transferred to handler, but code evaluation continues if
-handler did not transferred control flow.
 
-Warnings derive from both `:fennel-conditions/warning` and
-`:fennel-conditions/condition`, and can be catched with any of these
+Warnings are not thrown as errors when no handler is bound but their
+message is printed to standard error out.  Same to `signal', the
+control is temporarily transferred to handler, but code evaluation
+continues if handler did not transferred control flow.
+
+Warnings derive from both `Warning` and
+`Condition`, and can be catched with any of these
 handlers.
 
 # Examples
@@ -208,7 +215,8 @@ See `error' for examples how to handle conditions."
   (invoke-restart restart-name ...))
 
 (fn invoke-debugger* [condition-object]
-  "Invokes debugger for given `condition-object` to call restarts from the interactive menu."
+  "Invokes debugger for given `condition-object` to call restarts from
+the interactive menu."
   (invoke-debugger condition-object))
 
 (fn continue []
@@ -216,7 +224,7 @@ See `error' for examples how to handle conditions."
 
 Must be used only within the dynamic scope of `restart-case'.
 Transfers control flow to handler function when executed."
-  (invoke-restart :fennel-conditions/continue))
+  (invoke-restart :continue))
 
 (setmetatable
  {:error error*
@@ -225,12 +233,16 @@ Transfers control flow to handler function when executed."
   : make-condition
   :invoke-restart invoke-restart*
   :invoke-debugger invoke-debugger*
-  : continue}
+  : continue
+  : Condition
+  : Warning
+  : Error}
  {:__index
   {:_DESCRIPTION "Condition system for the Fennel language.
 
 This module provides a set of functions for control transfer, that
-implement Common Lisp-inspired condition system for the Fennel language."
+implement Common Lisp-inspired condition system for the Fennel
+language."
    :_MODULE_NAME "fennel-conditions"}})
 
 ; LocalWords:  unhandled

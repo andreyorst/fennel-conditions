@@ -71,7 +71,7 @@ of `restart-case' and `invoke-restart'."
         target (gensym :target)
         scope (gensym :scope)
         binding-len (length binding-vec)
-        setup `(doto ,scope)]
+        setup `(do)]
     (assert-compile (= (% binding-len 2) 0)
                     "expected even number of signal/handler bindings"
                     binding-vec)
@@ -82,13 +82,15 @@ of `restart-case' and `invoke-restart'."
         (assert-compile (or (sym? handler) (function-form? handler))
                         "handler must be a function"
                         handler)
+        (table.insert setup `(assert (not= nil ,(. binding-vec (- i 1)))
+                                     "condition object must not be nil"))
         (table.insert
          setup
-         `(tset :handlers {:parent (. ,scope :handlers)
-                           :target ,target
-                           :handler-type :handler-bind
-                           :handler {,(. binding-vec (- i 1))
-                                     ,(. binding-vec i)}}))))
+         `(tset ,scope :handlers {:parent (. ,scope :handlers)
+                                  :target ,target
+                                  :handler-type :handler-bind
+                                  :handler {,(. binding-vec (- i 1))
+                                            ,(. binding-vec i)}}))))
     `(let [,target {}
            ,thread ,(current-thread)
            ,cs (require ,condition-system)
@@ -242,15 +244,17 @@ Handling `error' condition:
         scope (gensym :scope)
         cs (gensym :condition-system)
         handlers (table.pack ...)
-        setup `(doto ,scope)]
+        setup `(do)]
     (for [i handlers.n 1 -1]
       (let [handler (. handlers i)]
         (assert-compile (list? handler) "handlers must be defined as lists" handler)
         (assert-compile (sequence? (. handler 2)) "expected parameter table" handler)
-        (table.insert setup `(tset :handlers {:parent (. ,scope :handlers)
-                                              :target ,target
-                                              :handler-type :handler-case
-                                              :handler {,(. handler 1) ,(list 'fn (unpack handler 2))}}))))
+        (table.insert setup `(assert (not= nil ,(. handler 1))
+                                     "condition object must not be nil"))
+        (table.insert setup `(tset ,scope :handlers {:parent (. ,scope :handlers)
+                                                     :target ,target
+                                                     :handler-type :handler-case
+                                                     :handler {,(. handler 1) ,(list 'fn (unpack handler 2))}}))))
     `(let [,target {}
            ,thread ,(current-thread)
            ,cs (require ,condition-system)
@@ -287,36 +291,27 @@ Handling `error' condition:
 (fn define-condition [condition-symbol ...]
   "Create base condition object with `condition-symbol' from which
 conditions will be derived with `make-condition'.  Accepts additional
-`:parent` and `:name` key value pairs.
+`:parent` and `:name` key value pairs.  If no `:name` specified, uses
+`condition-symbol`'s `tostring` representation.  If no `:parent` given
+uses `Condition' object as a parent.
 
 # Examples
-Creating `error` condition:
-
-``` fennel
-(define-condition err)
-```
-
-Creating `simple-error` condition with parent set to `error` condition:
-
-``` fennel
-(define-condition err)
-(define-condition simple-err :parent err)
-```
 
 Altering condition's printable name:
 
 ``` fennel
-(define-condition dbze :name \"divide by zero error\")
+(define-condition dbz :name :divide-by-zero)
 ```
 
-Handling inherited condition with its parent condition:
+Creating `math-error` condition with parent set to `Error` condition,
+and `divide-by-zero` condition with parent set to `math-error`, and handling it:
 
 ``` fennel
-(define-condition err)
-(define-condition simple-err :parent err)
+(define-condition math-error :parent Error)
+(define-condition divide-by-zero :parent math-error)
 
-(assert-is (handler-case (error simple-err)
-             (err [] :ok)))
+(assert-eq :ok (handler-case (error divide-by-zero)
+                 (math-error [] :ok)))
 ```"
   (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-object)
   (let [allowed-options {:parent true :name true}
@@ -327,6 +322,9 @@ Handling inherited condition with its parent condition:
     (each [k (pairs allowed-options)]
       (match (. options k)
         v (tset condition-object k v)))
+    (when (= nil (. condition-object :parent))
+      (tset condition-object :parent `(. (require ,condition-system)
+                                         :Condition)))
     `(local ,condition-symbol (let [condition-object# ,condition-object]
                                 (doto condition-object#
                                   (tset :id condition-object#))))))
@@ -363,7 +361,7 @@ Convert `x` to positive value if it is negative:
                   condition-object)
   `(restart-case (let [{:raise raise#} (require ,condition-system)]
                    (raise# :error ,condition-object))
-     (:fennel-conditions/continue [] ,continue-description nil)))
+     (:continue [] ,continue-description nil)))
 
 (fn ignore-errors [...]
   "Ignore all conditions of type error.  If error condition was raised,
@@ -389,8 +387,9 @@ Condition of type error is ignored:
 (assert-eq :some-error condition)
 (assert-eq [1 2] result)
 ```"
-  `(handler-case (do ,...)
-     (:fennel-conditions/error [c#] (values nil c#))))
+  `(let [cs# (require ,condition-system)]
+     (handler-case (do ,...)
+       (cs#.Error [c#] (values nil c#)))))
 
 (fn unwind-protect [expr ...]
   "Runs `expr` in protected call, and runs all other forms as cleanup

@@ -1,8 +1,14 @@
 (require-macros :fennel-test.test)
-(local {: error : warn : signal : invoke-restart} (require :init))
+(local {: error : warn : signal : invoke-restart &as cs} (require :init))
 (require-macros :macros)
 
 (deftest invoking-restarts
+  (testing "invalid handler-bind"
+    (let [(ok? msg) (pcall #(handler-bind [nil (fn [] :bad)]
+                              :ok))]
+      (assert-not ok?)
+      (assert-is (msg:match "condition object must not be nil"))))
+
   (testing "restart not found"
     (let [(ok? msg) (pcall #(handler-bind [:error (fn [] (invoke-restart :bar))]
                               (error :error)))]
@@ -43,8 +49,8 @@
     (let [res []]
       (assert-eq :ok (handler-bind [:condition (fn [] (table.insert res "first decline"))
                                     :condition (fn [] (table.insert res "second decline"))
-                                    :fennel-conditions/error (fn [] (table.insert res "error catchall decline"))
-                                    :fennel-conditions/condition (fn [] (table.insert res "catchall decline"))
+                                    cs.Error (fn [] (table.insert res "error catchall decline"))
+                                    cs.Condition (fn [] (table.insert res "catchall decline"))
                                     :condition (fn [] (table.insert res "handle") (invoke-restart :r))]
                        (restart-case (error :condition)
                          (:r [] (table.insert res "restart") :ok))))
@@ -95,11 +101,11 @@
                  res)))
 
   (testing "handling Lua error"
-    (assert-eq :ok (handler-bind [:fennel-conditions/error
+    (assert-eq :ok (handler-bind [cs.Error
                                   (fn [] (invoke-restart :r))]
                      (restart-case (/ 1 nil)
                        (:r [] :ok))))
-    (let [(ok? msg) (pcall #(handler-bind [:fennel-conditions/error
+    (let [(ok? msg) (pcall #(handler-bind [cs.Error
                                            (fn [] :decline)]
                               (restart-case (/ 1 nil)
                                 (:r [] :ok))))]

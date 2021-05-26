@@ -1,7 +1,7 @@
 (require-macros :fennel-test.test)
 (local {: error : invoke-debugger : make-condition} (require :init))
 (require-macros :macros)
-(set _G.fennel-conditions/use-debugger? true)
+(set _G.condition-system-use-debugger? true)
 
 (macro with-no-stderr [expr]
   "Suppress output to stderr."
