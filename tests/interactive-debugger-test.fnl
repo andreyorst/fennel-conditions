@@ -118,8 +118,8 @@ debugger:restart>> "
      (with-stderr-to-str
       (restart-case (invoke-debugger :foo)
         (:restart [a] "restart-doc" [a :ok]))))
-    (when utf8
-      (set utf8.len nil)
+    (when _G.utf8
+      (tset _G.utf8 :len nil)
       (set i 0)
       (assert-eq
        "Debugger was invoked on unhandled condition: \"foo\"
