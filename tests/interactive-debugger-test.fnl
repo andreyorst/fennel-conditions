@@ -30,6 +30,11 @@
 (local stdin-meta (. (getmetatable io.stdin) :__index))
 
 (deftest debugger
+  (testing "no scope"
+    (set stdin-meta.read (fn [] :1))
+    (with-no-stderr
+     (assert-not (pcall invoke-debugger))))
+
   (testing "default restart throws"
     (set stdin-meta.read (fn [] "throw"))
     (let [(_ msg) (with-no-stderr (pcall error :foo))]
@@ -112,7 +117,37 @@ debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
 debugger:restart>> "
      (with-stderr-to-str
       (restart-case (invoke-debugger :foo)
-        (:restart [a] "restart-doc" [a :ok])))))
+        (:restart [a] "restart-doc" [a :ok]))))
+    (when utf8
+      (set utf8.len nil)
+      (set i 0)
+      (assert-eq
+       "Debugger was invoked on unhandled condition: \"foo\"
+restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
+debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
+debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
+  unknown global in strict mode: a
+
+(values a)
+^
+* Try looking to see if there's a typo.
+* Try using the _G table instead, eg. _G.a if you really want a global.
+* Try moving this code to somewhere that a is in scope.
+* Try binding a as a local in the scope of this code.\"
+restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [cancel ] Return to level 1 debugger
+  3: [throw  ] Throw condition as a Lua error
+debugger>> restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
+debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
+debugger:restart>> "
+       (with-stderr-to-str
+        (restart-case (invoke-debugger :foo)
+          (:restart [a] "restart-doc" [a :ok]))))))
 
   (testing "throw from second level"
     (var i 0)
@@ -139,14 +174,14 @@ debugger:restart>> "
                                 (:restart [] :err))))))
 
   (testing "OK from second level"
-           (var i 0)
-           (set stdin-meta.read (fn []
-                                  (set i (+ i 1))
-                                  (. ["1" "a" "2"] i)))
-           (assert-eq [:ok :ok] (with-no-stderr
-                                 (restart-case (invoke-debugger :foo)
-                                   (:restart [a] [a :ok])
-                                   (:restart2 [] [:ok :ok])))))
+    (var i 0)
+    (set stdin-meta.read (fn []
+                           (set i (+ i 1))
+                           (. ["1" "a" "2"] i)))
+    (assert-eq [:ok :ok] (with-no-stderr
+                          (restart-case (invoke-debugger :foo)
+                            (:restart [a] [a :ok])
+                            (:restart2 [] [:ok :ok])))))
 
   (testing "Wrong action"
     (var i 0)

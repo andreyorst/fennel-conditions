@@ -219,8 +219,7 @@ thing."
                                         (_G.error message 3)))
           ;; error happened during argument providing (likely). Entering nested debug session
           (false res) (match (invoke-debugger res (+ (or level 1) 1))
-                        {:cancel true} (restart-menu restarts true level)
-                        _ _))
+                        {:cancel true} (restart-menu restarts true level)))
         (do (if (= nil input)
                 (io.stderr:write "\n")
                 (io.stderr:write "Wrong action. Use number from 1 to " (length restarts)
@@ -384,9 +383,7 @@ calls the handler, and returns a table with `:state` set to
 `:handled`, and `:handler` bound to an anonymous function that calls
 the restart."
   (let [thread (current-thread)
-        thread-scope (do (when (not (. dynamic-scope thread))
-                           (tset dynamic-scope thread {:handlers {} :restarts {}}))
-                         (. dynamic-scope thread))]
+        thread-scope (. dynamic-scope thread)]
     (match (find-handler
             condition-object
             type*
@@ -428,10 +425,7 @@ restart is found, calls the restart function and returns a table with
 `:state` set to `:restarted`, and `:restart` bound to the restart
 function."
   (let [args (pack ...)
-        thread (current-thread)
-        thread-scope (do (when (not (. dynamic-scope thread))
-                           (tset dynamic-scope thread {:handlers {} :restarts {}}))
-                         (. dynamic-scope thread))]
+        thread-scope (. dynamic-scope (current-thread))]
     (_G.error (match (find-restart restart-name thread-scope.restarts)
                 (restart target) {:state :restarted
                                   :restart #(restart (_unpack args))

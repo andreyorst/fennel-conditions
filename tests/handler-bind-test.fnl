@@ -3,6 +3,9 @@
 (require-macros :macros)
 
 (deftest invoking-restarts
+  (testing "no scope"
+    (assert-not (pcall invoke-restart :nope)))
+
   (testing "invalid handler-bind"
     (let [(ok? msg) (pcall #(handler-bind [nil (fn [] :bad)]
                               :ok))]
@@ -11,9 +14,16 @@
 
   (testing "restart not found"
     (let [(ok? msg) (pcall #(handler-bind [:error (fn [] (invoke-restart :bar))]
+                              (restart-case (error :error)
+                                (:baz [] :bad))))]
+      (assert-not ok?)
+      (assert-is (msg:match "restart \"bar\" is not found$")))
+
+    (let [(ok? msg) (pcall #(handler-bind [:error (fn [] (invoke-restart :bar))]
                               (error :error)))]
       (assert-not ok?)
       (assert-is (msg:match "restart \"bar\" is not found$")))
+
     (let [(ok? msg) (pcall invoke-restart :bar)]
       (assert-not ok?)
       (assert-is (msg:match "restart \"bar\" is not found$"))))
