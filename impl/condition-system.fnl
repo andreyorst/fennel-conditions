@@ -499,6 +499,12 @@ function."
       :warning (raise-warning condition-object)
       :error (raise-error condition-object))))
 
+(fn condition= [c1 c2]
+  "Compare `c1` and `c2` condition objects by their `id` field."
+  (and (= c1.type :condition)
+       (= c2.type :condition)
+       (rawequal c1.id c2.id)))
+
 (setmetatable
  {: raise
   : invoke-restart
@@ -512,7 +518,8 @@ function."
   : dynamic-scope
   : Condition
   : Error
-  : Warning}
+  : Warning
+  : condition=}
  {:__index {:_DESCRIPTION "Condition system for Fennel language.
 
 This module is library's private API that provides functions meant for

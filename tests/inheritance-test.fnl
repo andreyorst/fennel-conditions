@@ -44,4 +44,12 @@
                      (restart-case (signal simple-error-2)
                        (:r [] :ok)
                        (:r2 [] :bad1)
-                       (:r3 [] :bad2))))))
+                       (:r3 [] :bad2)))))
+
+  (testing "Handling parent, matching on condition"
+    (define-condition simple-error :parent cs.Error)
+    (assert-eq :ok (handler-case (signal simple-error)
+                     (cs.Error [c]
+                               (match c
+                                 simple-error :ok
+                                 _ :bad))))))

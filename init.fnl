@@ -6,7 +6,8 @@
         : Condition
         : Warning
         : Error
-        : dynamic-scope}
+        : dynamic-scope
+        : condition=}
   ;; Constructing relative path
   (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
                :impl.condition-system)))
@@ -147,8 +148,8 @@ handlers.
 
 Warning is ignored if not handled:
 
-``` fennel
-(assert-eq nil (warn :warn-condition))
+```
+(warn :warn-condition)
 ```
 
 See `error' for examples how to handle conditions."
@@ -175,7 +176,7 @@ object:
 (handler-case
     (error (make-condition some-condition {:foo \"bar\"} 42))
   (some-condition [cond foo-bar forty-two leet]
-    (assert-ne some-condition cond)
+    (assert-eq some-condition cond)
     (assert-eq {:foo \"bar\"} foo-bar)
     (assert-eq 42 forty-two)))
 ```"
@@ -183,10 +184,12 @@ object:
                (= :condition condition-object.type)
                (not= nil condition-object.id))
           "condition must derive from existing condition object")
-  {:data (if arg1 (pack arg1 ...))
-   :id condition-object.id
-   :parent condition-object.parent
-   :type :condition})
+  (setmetatable
+   {:data (if arg1 (pack arg1 ...))
+    :id condition-object.id
+    :parent condition-object.parent
+    :type :condition}
+   (getmetatable condition-object)))
 
 (fn invoke-restart* [restart-name ...]
   "Invoke restart `restart-name' to handle a condition.

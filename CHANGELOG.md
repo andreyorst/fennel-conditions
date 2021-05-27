@@ -1,3 +1,8 @@
+## fennel-conditions v0.1.0-rc3 (???)
+
+- Condition comparison semantics have been altered to compare conditions by their id.
+- Conditions are pretty-printed in the REPL.
+
 ## fennel-conditions v0.1.0-rc2 (2021-05-26)
 
 - Rename `fennel-conditions/use-debugger?` to `condition-system-use-debugger?`.

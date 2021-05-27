@@ -51,10 +51,14 @@ prevent re-raising, use `invoke-restart' function.
 Handlers executed but their return values are not used:
 
 ``` fennel
+(var res nil)
+
 (assert-not
- (handler-bind [:signal-condition (fn [] (print \"caught signal condition\") 10)
-                :error-condition (fn [] (print \"caught error condition\") 20)]
+ (handler-bind [:signal-condition (fn [] (set res \"signal\") 10)
+                :error-condition (fn [] (set res \"error\") 20)]
    (signal :error-condition)))
+
+(assert-eq res :error)
 ```
 
 To provide a return value use either `handler-case' or a combination
@@ -325,8 +329,12 @@ and `divide-by-zero` condition with parent set to `math-error`, and handling it:
     (when (= nil (. condition-object :parent))
       (tset condition-object :parent `(. (require ,condition-system)
                                          :Condition)))
-    `(local ,condition-symbol (let [condition-object# ,condition-object]
+    `(local ,condition-symbol (let [{:condition= eq#} (require ,condition-system)
+                                    condition-object# ,condition-object]
                                 (doto condition-object#
+                                  (setmetatable {:__eq eq#
+                                                 :__name (.. "condition " condition-object#.name)
+                                                 :__fennelview #(.. "#<" (tostring $) ">")})
                                   (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
