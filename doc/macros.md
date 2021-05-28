@@ -1,4 +1,4 @@
-# Macros.fnl (v0.1.0-rc2)
+# Macros.fnl (v0.1.0-rc3)
 Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common
@@ -102,10 +102,14 @@ prevent re-raising, use `invoke-restart` function.
 Handlers executed but their return values are not used:
 
 ``` fennel
+(var res nil)
+
 (assert-not
- (handler-bind [:signal-condition (fn [] (print "caught signal condition") 10)
-                :error-condition (fn [] (print "caught error condition") 20)]
+ (handler-bind [:signal-condition (fn [] (set res "signal") 10)
+                :error-condition (fn [] (set res "error") 20)]
    (signal :error-condition)))
+
+(assert-eq res :error)
 ```
 
 To provide a return value use either [`handler-case`](#handler-case) or a combination

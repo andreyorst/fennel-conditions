@@ -19,9 +19,9 @@ This function is a drop-in replacement for the inbuilt `error`
 function.  Similarly to Lua's `error` accepting message as its first
 argument, this function accepts condition object as it's first
 argument, although it ignores the second argument, because the
-throwing semantics are different.  Like Lua's `error', this function
+throwing semantics are different.  Like Lua's `error`, this function
 will interrupt function execution where it was called, and no code
-after `error' will be executed.  If no handler bound for raised
+after `error` will be executed.  If no handler bound for raised
 condition, it is promoted to a Lua error with detailed message about
 the unhandled condition and it's arguments, if any.
 
@@ -156,13 +156,14 @@ See `error' for examples how to handle conditions."
   (raise :warning condition-object))
 
 (fn make-condition [condition-object arg1 ...]
-  "Derives condition from base `condition-object'.  Accepts any amount
-of additional arguments that will be passed as arguments to handlers
-when handling this condition instance.
+  "Derives condition from `condition-object'.  Accepts any amount of
+additional arguments that will be passed as arguments to handlers when
+handling this condition instance.
 
 Condition created with `define-condition` and derived condition are
 different objects, but the condition system sees those as the same
-condition.
+condition.  Comparison semantics are such that derived condition is
+equal to it's base condition object.
 
 # Examples
 
@@ -175,8 +176,8 @@ object:
 
 (handler-case
     (error (make-condition some-condition {:foo \"bar\"} 42))
-  (some-condition [cond foo-bar forty-two leet]
-    (assert-eq some-condition cond)
+  (some-condition [c foo-bar forty-two]
+    (assert-eq some-condition c)
     (assert-eq {:foo \"bar\"} foo-bar)
     (assert-eq 42 forty-two)))
 ```"
@@ -194,12 +195,14 @@ object:
 (fn invoke-restart* [restart-name ...]
   "Invoke restart `restart-name' to handle a condition.
 
+Additional arguments are passed to restart function as arguments.
+
 Must be used only within the dynamic scope of `restart-case'.
 Transfers control flow to handler function when executed.
 
 # Examples
 
-Handle the `error' with the `:use-value' restart:
+Handle the `error' with the `:use-value` restart:
 
 ``` fennel
 (define-condition error-condition)

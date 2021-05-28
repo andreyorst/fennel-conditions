@@ -314,7 +314,8 @@ previous debug level."
 (tset Warning :id Warning)
 (metadata:set Warning
               :fnl/docstring
-              "Condition object that acts as a base for all warning conditions.")
+              "Condition object that acts as a base for all warning conditions.
+Inherits `Condition'.")
 
 (local Error
   {:name "error"
@@ -323,7 +324,8 @@ previous debug level."
 (tset Error :id Error)
 (metadata:set Error
               :fnl/docstring
-              "Condition object that acts as a base for all error conditions.")
+              "Condition object that acts as a base for all error conditions.
+Inherits `Condition'.")
 
 ;;; Handlers
 

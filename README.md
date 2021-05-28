@@ -2,8 +2,8 @@
 
 Common Lisp inspired condition system for Fennel language.
 
-This library implements thread safe resumable exception model for Fennel language and the Lua runtime.
-It is based on the idea of leveraging tables to implement a dynamic scope.
+This library implements thread safe resumable exception model for the Fennel language, and Lua runtime.
+It is based on the idea of leveraging tables to implement thread-local dynamic scopes.
 
 This library is a work in progress.
 All updates up to 0.1.0 can be considered breaking.
@@ -17,23 +17,44 @@ Clone this repository into your project:
 ## Usage
 
 This library provides it's public API in two files: `init.fnl` and `macros.fnl`.
-`init.fnl` module defines functions `error`, `warn`, `signal`, `find-restart`, `invoke-restart`, `invoke-debugger`, `continue`, `make-condition`, and exports predefined condition objects `Condition`, `Warning`, and `Error`.
-`macros.fnl` module provides `restart-case`, `handler-bind`, `handler-case`, `cerror`, `define-condition`, `ignore-errors`, and `unwind-protect` macros.
+`init.fnl` module defines functions:
+
+- `error`,
+- `warn`,
+- `signal`,
+- `find-restart`,
+- `invoke-restart`,
+- `invoke-debugger`,
+- `continue`,
+- `make-condition`.
+
+And exports predefined condition objects `Condition`, `Warning`, and `Error`.
 
 Every condition derives from `Condition` type.
 Errors automatically derive from both `Condition` and `Error`.
 Warnings automatically derive from both `Condition` and `Warning`.
+
+`macros.fnl` module provides the following macros:
+
+- `restart-case`,
+- `handler-bind`,
+- `handler-case`,
+- `cerror`,
+- `define-condition`,
+- `ignore-errors`,
+- `unwind-protect`.
 
 Each macro calls internal API functions, which means that `impl/condition-system.fnl` must be included in order to use this library in resulting Lua application.
 See [`--require-as-include`](https://fennel-lang.org/reference#include) flag in compiler options.
 
 ### Differences from Common Lisp
 
-This is not a one-to-one port of Common Lisp's condition system, rather an adaptation of the idea in a way that is meaningful for Fennel language, and the Lua runtime.
-There is no implementation of `block`, `tagbody`, `go`, `return-from`, and possibly other constructs from Common Lisp, on which condition system is built on.
-These constructs may be added in the future, but it is not a high priority.
-There's no `restart-bind`, only `restart-case` is implemented.
-Macros and function names are mostly the same as in Common Lisp, and runtime semantics should be similar, but the syntax is slightly altered to match Fennel's own syntax.
+- This is not a one-to-one port of Common Lisp's condition system, rather an adaptation of the idea in a way that is meaningful for Fennel language, and the Lua runtime.
+- There is no implementation of `block`, `tagbody`, `go`, `return-from`, and possibly other constructs from Common Lisp, on which condition system is built on.
+  These constructs may be added in the future, but it is not a high priority, as Fennel doesn't support early returns, and primary use of this library is error handling.
+- There's no `restart-bind`, only `restart-case` is implemented.
+- Condition inheritance is simpler, and many default condition types are left out for the user to define, like `simple-error`.
+- Macros and function names are mostly the same as in Common Lisp, and runtime semantics should be similar, but the syntax is slightly altered to match Fennel's own syntax.
 
 ### Note on the `_G.error` and `pcall`
 

@@ -1,4 +1,4 @@
-## fennel-conditions v0.1.0-rc3 (???)
+## fennel-conditions v0.1.0-rc3 (2021-05-28)
 
 - Condition comparison semantics have been altered to compare conditions by their id.
 - Conditions are pretty-printed in the REPL.

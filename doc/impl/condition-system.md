@@ -1,4 +1,4 @@
-# Condition-system.fnl (v0.1.0-rc2)
+# Condition-system.fnl (v0.1.0-rc3)
 Condition system for Fennel language.
 
 This module is library's private API that provides functions meant for
@@ -16,6 +16,7 @@ internal use only.  For public API docs see
 - [`Error`](#error)
 - [`Warning`](#warning)
 - [`compose-error-message`](#compose-error-message)
+- [`condition=`](#condition-1)
 - [`find-handler`](#find-handler)
 - [`find-restart`](#find-restart)
 - [`invoke-debugger`](#invoke-debugger)
@@ -74,9 +75,11 @@ Condition object that acts as a base for all conditions.
 
 ## `Error`
 Condition object that acts as a base for all error conditions.
+Inherits [`Condition`](#condition).
 
 ## `Warning`
 Condition object that acts as a base for all warning conditions.
+Inherits [`Condition`](#condition).
 
 ## `compose-error-message`
 Function signature:
@@ -107,6 +110,15 @@ Conditions with data produce extended messages:
  "condition simple-error was raised with the following arguments: 1, 2, 3"
  (compose-error-message (make-condition simple-error 1 2 3)))
 ```
+
+## `condition=`
+Function signature:
+
+```
+(condition= c1 c2)
+```
+
+Compare `c1` and `c2` condition objects by their `id` field.
 
 ## `find-handler`
 Function signature:

@@ -1,4 +1,4 @@
-# Fennel-conditions (v0.1.0-rc2)
+# Fennel-conditions (v0.1.0-rc3)
 Condition system for the Fennel language.
 
 This module provides a set of functions for control transfer, that
@@ -32,9 +32,9 @@ This function is a drop-in replacement for the inbuilt `error`
 function.  Similarly to Lua's `error` accepting message as its first
 argument, this function accepts condition object as it's first
 argument, although it ignores the second argument, because the
-throwing semantics are different.  Like Lua's [`error`](#error), this function
+throwing semantics are different.  Like Lua's `error`, this function
 will interrupt function execution where it was called, and no code
-after [`error`](#error) will be executed.  If no handler bound for raised
+after `error` will be executed.  If no handler bound for raised
 condition, it is promoted to a Lua error with detailed message about
 the unhandled condition and it's arguments, if any.
 
@@ -128,8 +128,8 @@ handlers.
 
 Warning is ignored if not handled:
 
-``` fennel
-(assert-eq nil (warn :warn-condition))
+```
+(warn :warn-condition)
 ```
 
 See [`error`](#error) for examples how to handle conditions.
@@ -186,12 +186,14 @@ Function signature:
 
 Invoke restart `restart-name` to handle a condition.
 
+Additional arguments are passed to restart function as arguments.
+
 Must be used only within the dynamic scope of `restart-case`.
 Transfers control flow to handler function when executed.
 
 ### Examples
 
-Handle the [`error`](#error) with the `:use-value' restart:
+Handle the [`error`](#error) with the `:use-value` restart:
 
 ``` fennel
 (define-condition error-condition)
@@ -227,9 +229,11 @@ Condition object that acts as a base for all conditions.
 
 ## `Error`
 Condition object that acts as a base for all error conditions.
+Inherits [`Condition`](#condition).
 
 ## `Warning`
 Condition object that acts as a base for all warning conditions.
+Inherits [`Condition`](#condition).
 
 ## `find-restart`
 Function signature:
@@ -259,13 +263,14 @@ Function signature:
 (make-condition condition-object arg1 ...)
 ```
 
-Derives condition from base `condition-object`.  Accepts any amount
-of additional arguments that will be passed as arguments to handlers
-when handling this condition instance.
+Derives condition from `condition-object`.  Accepts any amount of
+additional arguments that will be passed as arguments to handlers when
+handling this condition instance.
 
 Condition created with `define-condition` and derived condition are
 different objects, but the condition system sees those as the same
-condition.
+condition.  Comparison semantics are such that derived condition is
+equal to it's base condition object.
 
 ### Examples
 
@@ -278,8 +283,8 @@ object:
 
 (handler-case
     (error (make-condition some-condition {:foo "bar"} 42))
-  (some-condition [cond foo-bar forty-two leet]
-    (assert-ne some-condition cond)
+  (some-condition [c foo-bar forty-two]
+    (assert-eq some-condition c)
     (assert-eq {:foo "bar"} foo-bar)
     (assert-eq 42 forty-two)))
 ```
