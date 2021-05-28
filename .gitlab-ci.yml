@@ -42,7 +42,7 @@ Lua:
     script:
         - LUAEXECUTABLES="lua5.2 lua5.3 lua5.4" make testall >/dev/null
         - make luacov
-        - tail -1 luacov.report
+        - tail luacov.report
     artifacts:
         reports:
             cobertura: coverage/cobertura-coverage.xml
