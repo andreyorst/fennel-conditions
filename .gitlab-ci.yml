@@ -37,12 +37,11 @@ Lua:
         - luarocks-5.3 install fennel "$fennel_ver"
         - luarocks-5.3 install luacov
         - luarocks-5.3 install luacov-cobertura
-        - luarocks-5.3 install luacov-console
         - *fenneldoc
     script:
         - LUAEXECUTABLES="lua5.2 lua5.3 lua5.4" make testall >/dev/null
-        - make luacov-console  # doesn't use --correlate, more accurate
-        - make luacov          # produces Cobertura XML
+        - make luacov
+        - tail -1 luacov.report
     artifacts:
         reports:
             cobertura: coverage/cobertura-coverage.xml
