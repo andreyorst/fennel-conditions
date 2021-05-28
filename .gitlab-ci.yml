@@ -36,6 +36,7 @@ Lua:
         - export LUA=lua5.3
         - luarocks-5.3 install fennel "$fennel_ver"
         - luarocks-5.3 install luacov
+        - luarocks-5.3 install cluacov
         - luarocks-5.3 install luacov-cobertura
         - *fenneldoc
     script:
