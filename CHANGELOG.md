@@ -1,3 +1,7 @@
+## fennel-conditions v0.1.0 (2021-05-30)
+
+First stable release of fennel-conditions library.
+
 ## fennel-conditions v0.1.0-rc3 (2021-05-28)
 
 - Condition comparison semantics have been altered to compare conditions by their id.

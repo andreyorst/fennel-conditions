@@ -34,14 +34,15 @@
   "Bind handlers to conditions.
 
 `binding-vec' is a sequential table of conditions and their respecting
-handlers followed by the body expression.  Each handler should be a
+handlers, followed by the body expression.  Each handler should be a
 function of at least one argument - the condition being handled.
 Other arguments are optional, and can be used inside the handler.
 
-If body expression raises a condition, and a handler is bound for this
-condition, the handler is invoked.  If no handler were bound for
-condition, handlers are searched up the dynamic scope. If no handler
-found, condition is thrown as a Lua error.
+If the body expression or any of its subsequent expressions raises a
+condition, and a handler is bound for this condition type, the handler
+function is invoked.  If no handler were bound, handlers are searched
+up the dynamic scope. If no handler found, condition is thrown as a
+Lua error.
 
 If invoked handler exits normally, a condition is re-raised.  To
 prevent re-raising, use `invoke-restart' function.
@@ -130,11 +131,12 @@ of `restart-case' and `invoke-restart'."
              ,_ (_G.error res#))))))
 
 (fn restart-case [expr ...]
-  "Resumable condition restart point.
+  "Condition restart point.
 
 Accepts expression `expr' and restarts that can be used when handling
 conditions thrown from within the expression.  Similarly to
-`handler-case' restarts are lists with restart name, and an fn-tail.
+`handler-case' restarts are lists with first element being a restart
+name, and an fn-tail.
 
 If expression or any of it's subsequent expressions raises a
 condition, it will be possible to return into the `restart-case', and
@@ -220,7 +222,7 @@ Specifying two restarts for `:signal-condition`:
                     ,_ (_G.error res#))))))))
 
 (fn handler-case [expr ...]
-  "Condition handling similar to try/catch.
+  "Condition handling point, similar to try/catch.
 
 Accepts expression `expr' and handlers that can be used to handle
 conditions, raised from within the expression or any subsequent
@@ -294,10 +296,10 @@ Handling `error' condition:
 
 (fn define-condition [condition-symbol ...]
   "Create base condition object with `condition-symbol' from which
-conditions will be derived with `make-condition'.  Accepts additional
-`:parent` and `:name` key value pairs.  If no `:name` specified, uses
-`condition-symbol`'s `tostring` representation.  If no `:parent` given
-uses `Condition' object as a parent.
+conditions can later be derived with `make-condition'.  Accepts
+additional `:parent` and `:name` key value pairs.  If no `:name`
+specified, uses `condition-symbol`'s `tostring` representation.  If no
+`:parent` given uses `Condition' object as a parent.
 
 # Examples
 
@@ -338,7 +340,7 @@ and `divide-by-zero` condition with parent set to `math-error`, and handling it:
                                   (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
-  "Raise `condition-object' as an error with auto-bound continue restart, described by `continue-description'.
+  "Raise `condition-object' as an error with auto-bound `:continue` restart, described by `continue-description'.
 
 Similarly to `error', `cerror' raises condition as an error, but
 automatically binds the `continue' restart, which can be used either
@@ -373,9 +375,9 @@ Convert `x` to positive value if it is negative:
 
 (fn ignore-errors [...]
   "Ignore all conditions of type error.  If error condition was raised,
-returns nil and condition as values.  If no error conditions were
-raised, returns the resulting values normally.  Lua errors can be
-handled with this macro.
+returns nil and the condition as multiple values.  If no error
+conditions were raised, returns the resulting values normally.  Lua
+errors can be handled with this macro.
 
 # Examples
 
@@ -401,8 +403,8 @@ Condition of type error is ignored:
 
 (fn unwind-protect [expr ...]
   "Runs `expr` in protected call, and runs all other forms as cleanup
-forms before returning value, whether `expr` returned normally or
-error occurred.  Similar to try/finally without a catch.
+forms before returning the value, whether `expr` returned normally or
+an error occurred.  Similar to try/finally without a catch.
 
 # Examples
 

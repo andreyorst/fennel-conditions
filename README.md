@@ -2,11 +2,8 @@
 
 Common Lisp inspired condition system for Fennel language.
 
-This library implements thread safe resumable exception model for the Fennel language, and Lua runtime.
+This library implements thread-safe resumable exception model for the Fennel language, and Lua runtime.
 It is based on the idea of leveraging tables to implement thread-local dynamic scopes.
-
-This library is a work in progress.
-All updates up to 0.1.0 can be considered breaking.
 
 ## Installation
 

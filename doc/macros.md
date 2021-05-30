@@ -1,4 +1,4 @@
-# Macros.fnl (v0.1.0-rc3)
+# Macros.fnl (v0.1.0)
 Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common
@@ -21,7 +21,7 @@ Function signature:
 (cerror continue-description condition-object ...)
 ```
 
-Raise `condition-object` as an error with auto-bound continue restart, described by `continue-description`.
+Raise `condition-object` as an error with auto-bound `:continue` restart, described by `continue-description`.
 
 Similarly to `error`, [`cerror`](#cerror) raises condition as an error, but
 automatically binds the `continue` restart, which can be used either
@@ -52,7 +52,7 @@ Function signature:
 (handler-case expr ...)
 ```
 
-Condition handling similar to try/catch.
+Condition handling point, similar to try/catch.
 
 Accepts expression `expr` and handlers that can be used to handle
 conditions, raised from within the expression or any subsequent
@@ -85,14 +85,15 @@ Function signature:
 Bind handlers to conditions.
 
 `binding-vec` is a sequential table of conditions and their respecting
-handlers followed by the body expression.  Each handler should be a
+handlers, followed by the body expression.  Each handler should be a
 function of at least one argument - the condition being handled.
 Other arguments are optional, and can be used inside the handler.
 
-If body expression raises a condition, and a handler is bound for this
-condition, the handler is invoked.  If no handler were bound for
-condition, handlers are searched up the dynamic scope. If no handler
-found, condition is thrown as a Lua error.
+If the body expression or any of its subsequent expressions raises a
+condition, and a handler is bound for this condition type, the handler
+function is invoked.  If no handler were bound, handlers are searched
+up the dynamic scope. If no handler found, condition is thrown as a
+Lua error.
 
 If invoked handler exits normally, a condition is re-raised.  To
 prevent re-raising, use `invoke-restart` function.
@@ -122,11 +123,12 @@ Function signature:
 (restart-case expr ...)
 ```
 
-Resumable condition restart point.
+Condition restart point.
 
 Accepts expression `expr` and restarts that can be used when handling
 conditions thrown from within the expression.  Similarly to
-[`handler-case`](#handler-case) restarts are lists with restart name, and an fn-tail.
+[`handler-case`](#handler-case) restarts are lists with first element being a restart
+name, and an fn-tail.
 
 If expression or any of it's subsequent expressions raises a
 condition, it will be possible to return into the [`restart-case`](#restart-case), and
@@ -152,10 +154,10 @@ Function signature:
 ```
 
 Create base condition object with `condition-symbol` from which
-conditions will be derived with `make-condition`.  Accepts additional
-`:parent` and `:name` key value pairs.  If no `:name` specified, uses
-`condition-symbol`'s `tostring` representation.  If no `:parent` given
-uses `Condition` object as a parent.
+conditions can later be derived with `make-condition`.  Accepts
+additional `:parent` and `:name` key value pairs.  If no `:name`
+specified, uses `condition-symbol`'s `tostring` representation.  If no
+`:parent` given uses `Condition` object as a parent.
 
 ### Examples
 
@@ -184,9 +186,9 @@ Function signature:
 ```
 
 Ignore all conditions of type error.  If error condition was raised,
-returns nil and condition as values.  If no error conditions were
-raised, returns the resulting values normally.  Lua errors can be
-handled with this macro.
+returns nil and the condition as multiple values.  If no error
+conditions were raised, returns the resulting values normally.  Lua
+errors can be handled with this macro.
 
 ### Examples
 
@@ -215,8 +217,8 @@ Function signature:
 ```
 
 Runs `expr` in protected call, and runs all other forms as cleanup
-forms before returning value, whether `expr` returned normally or
-error occurred.  Similar to try/finally without a catch.
+forms before returning the value, whether `expr` returned normally or
+an error occurred.  Similar to try/finally without a catch.
 
 ### Examples
 

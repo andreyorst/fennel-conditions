@@ -1,4 +1,4 @@
-# Fennel-conditions (v0.1.0-rc3)
+# Fennel-conditions (v0.1.0)
 Condition system for the Fennel language.
 
 This module provides a set of functions for control transfer, that
@@ -35,8 +35,8 @@ argument, although it ignores the second argument, because the
 throwing semantics are different.  Like Lua's `error`, this function
 will interrupt function execution where it was called, and no code
 after `error` will be executed.  If no handler bound for raised
-condition, it is promoted to a Lua error with detailed message about
-the unhandled condition and it's arguments, if any.
+condition, the condition will be promoted to a Lua error with detailed
+message about the unhandled condition and it's arguments, if any.
 
 ```
 >> (error :condition-object)
@@ -44,17 +44,19 @@ runtime error: condition condition-object was raised
 stack traceback...
 ```
 
-Conditions support inheritance, and all conditions that are raised
-with the [`error`](#error) function automatically derive from
-`Error` condition, and can be catched with handler
-bound to this condition handlers.
+Condition objects support inheritance, and all conditions that are
+raised with the [`error`](#error) function automatically derive from [`Error`](#error-1)
+condition, and can be catched with handler bound to this condition
+object.
 
-And all conditions automatically derive from
-`Condition` condition.
+Likewise all conditions automatically derive from [`Condition`](#condition)
+condition, which is a base type for all condition objects.
 
 Any Lua object can be a condition, and such conditions are handled by
-reference.  If more complex inheritance rules are required,
-`define-condition` and [`make-condition`](#make-condition) can be used.
+reference, but still can be handled by binding handler for [`Condition`](#condition)
+and [`Error`](#error-1) (in case Lua object was raised with the `error` function).
+If more complex inheritance rules are required, `define-condition` and
+[`make-condition`](#make-condition) can be used.
 
 ### Examples
 
@@ -65,7 +67,18 @@ with `pcall`:
 (assert-not (pcall error :error-condition))
 ```
 
-Conditions can be handled with `handler-case`:
+Error conditions, and Lua errors can be handled by binding a handler
+to `Error` and `Condition` conditions via `handler-case`:
+
+``` fennel
+(assert-eq 27 (handler-case (error :some-error-condition)
+                (Condition [] 27)))
+
+(assert-eq 42 (handler-case (/ 1 nil)
+                (Error [] 42)))
+```
+
+User-defined conditions can be handled by their base type:
 
 ``` fennel
 (define-condition some-error)
@@ -78,33 +91,29 @@ Conditions can be handled with `handler-case`:
 ```
 
 Conditions also can be recovered with `handler-bind` and
-`restart-case` by using [`invoke-restart`](#invoke-restart).  Error recovery code doesn't
-necessary need to be a part of the same lexical scope:
+`restart-case` by using [`invoke-restart`](#invoke-restart).  Error handling code doesn't
+necessary has to be a part of the same lexical scope of where
+condition was raised:
 
 ``` fennel
 (define-condition some-error)
 
-(fn recover-from-error []
+(fn some-function []
   (restart-case (error (make-condition some-error 32))
     (:use-value [x] x)))
 
 (handler-bind [some-error
                (fn [_ x]
                  (invoke-restart :use-value (+ x 10)))]
-  (assert-eq 42 (recover-from-error)))
+  (assert-eq 42 (some-function)))
 ```
 
-Error conditions, and Lua errors can be handled by binding a handler
-to `Error` and `Condition`
-conditions:
-
-``` fennel
-(assert-eq 27 (handler-case (error :some-error-condition)
-                (Condition [] 27)))
-
-(assert-eq 42 (handler-case (/ 1 nil)
-                (Error [] 42)))
-```
+In this case, `restart-case` is in the lexical scope of
+`some-function`, and `handler-bind` is outside of it's lexical
+scope. When `some-function` raises `some-error` condition a handler
+bound to this condition is executed. Handler invokes restart named
+`:use-value`, which recovers function from error state and function
+returns the value provided by the restart.
 
 ## `warn`
 Function signature:
@@ -115,14 +124,14 @@ Function signature:
 
 Raise `condition-object` as a warning.
 
-Warnings are not thrown as errors when no handler is bound but their
-message is printed to standard error out.  Same to [`signal`](#signal), the
-control is temporarily transferred to handler, but code evaluation
-continues if handler did not transferred control flow.
+Warnings are not thrown as errors when no handler is bound but the
+message is printed to standard error out when warning condition is not
+handled.  Similarly to [`signal`](#signal), the control is temporarily
+transferred to a handler, but code evaluation continues if handler did
+not transferred control flow.
 
-Warnings derive from both `Warning` and
-`Condition`, and can be catched with any of these
-handlers.
+Warnings derive from both `Warning` and `Condition`, and can be
+catched by binding handler to any of these types.
 
 ### Examples
 
@@ -143,14 +152,13 @@ Function signature:
 
 Raise `condition-object` as a signal.
 
-Raises given condition as a signal.  Signals can be handled with the
-same ways as [`error`](#error) conditions, but don't promote to errors if no
-handler was found.  This function transfers control flow to the
-handler at the point where it was called but will continue execution
-if handler doesn't transfer control flow.
+Signals can be handled the same way as [`error`](#error) conditions, but don't
+promote to errors if no handler was found.  This function transfers
+control flow to the handler at the point where it was called but will
+continue execution if handler itself doesn't transfer control flow.
 
-Signals derive from `Condition`, and can be catched
-with this handler.
+Signals derive from `Condition`, and can be catched with handler bound
+to this type.
 
 ### Examples
 
@@ -189,7 +197,7 @@ Invoke restart `restart-name` to handle a condition.
 Additional arguments are passed to restart function as arguments.
 
 Must be used only within the dynamic scope of `restart-case`.
-Transfers control flow to handler function when executed.
+Transfers control flow to restart function when executed.
 
 ### Examples
 
@@ -219,7 +227,7 @@ Function signature:
 (continue)
 ```
 
-Invoke the [`continue`](#continue) restart, which is bound automatically by `cerror` macro.
+Invoke the [`continue`](#continue) restart, which is automatically bound by `cerror` macro.
 
 Must be used only within the dynamic scope of `restart-case`.
 Transfers control flow to handler function when executed.
@@ -242,9 +250,8 @@ Function signature:
 (find-restart restart-name)
 ```
 
-Searches `restart-name` in the dynamic scope.
-
-If restart is found, returns its name.
+Searches `restart-name` in the dynamic scope, and if found, returns
+its name.
 
 ## `invoke-debugger`
 Function signature:
@@ -263,18 +270,18 @@ Function signature:
 (make-condition condition-object arg1 ...)
 ```
 
-Derives condition from `condition-object`.  Accepts any amount of
-additional arguments that will be passed as arguments to handlers when
-handling this condition instance.
+Creates an instance of `condition-object`.  Accepts any amount of
+additional arguments that will be passed as arguments to a handler
+when handling this condition instance.
 
 Condition created with `define-condition` and derived condition are
 different objects, but the condition system sees those as the same
-condition.  Comparison semantics are such that derived condition is
-equal to it's base condition object.
+type.  Comparison semantics are such that derived condition is equal
+to its base condition object.
 
 ### Examples
 
-Defining a condition, and making instance of this condition with two
+Defining a condition, making instance of this condition with two
 arguments, and registering the handler for the original condition
 object:
 
@@ -284,7 +291,7 @@ object:
 (handler-case
     (error (make-condition some-condition {:foo "bar"} 42))
   (some-condition [c foo-bar forty-two]
-    (assert-eq some-condition c)
+    (assert-is (= some-condition c)) ; condition instance is equal to its base type
     (assert-eq {:foo "bar"} foo-bar)
     (assert-eq 42 forty-two)))
 ```
