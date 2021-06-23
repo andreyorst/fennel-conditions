@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: invoke-restart : error} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest unwind-protect-order
   (testing "restart first"

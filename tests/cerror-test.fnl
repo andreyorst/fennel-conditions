@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: error : warn : signal : invoke-restart : continue} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest cerror-test
   (testing "continue"

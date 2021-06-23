@@ -1,5 +1,6 @@
 (local condition-system ; Constructing relative path for runtime require
-  (.. (: (or ... "") :gsub "macros$" "")
+  (if (and ... (not= ... :init-macros))
+      (.. ... :.impl.condition-system)
       :impl.condition-system))
 
 (fn current-thread []
@@ -319,7 +320,7 @@ and `divide-by-zero` condition with parent set to `math-error`, and handling it:
 (assert-eq :ok (handler-case (error divide-by-zero)
                  (math-error [] :ok)))
 ```"
-  (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-object)
+  (assert-compile (sym? condition-symbol) "condition-object must be a symbol" condition-symbol)
   (let [allowed-options {:parent true :name true}
         options (seq-to-table (table.pack ...))
         condition-object {:name (tostring condition-symbol) :type :condition}]

@@ -1,5 +1,5 @@
 (local {: error} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (fn foo []
   (restart-case (error :error)

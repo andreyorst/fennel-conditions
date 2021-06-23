@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: invoke-restart : continue : find-restart : error : Condition : warn} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest calling-restarts-without-handlers
   (testing "no-scope"

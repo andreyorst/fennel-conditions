@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: make-condition : signal : invoke-restart &as cs} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest inheritance
   (testing "default inheritance"
