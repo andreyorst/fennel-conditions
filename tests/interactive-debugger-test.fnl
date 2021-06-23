@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: error : invoke-debugger : make-condition} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 (set _G.condition-system-use-debugger? true)
 
 (macro with-no-stderr [expr]

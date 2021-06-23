@@ -2,7 +2,7 @@ LUA ?= lua
 FENNEL ?= fennel
 VERSION ?=
 FNLSOURCES = $(wildcard impl/*.fnl) init.fnl
-FNLMACROS = macros.fnl
+FNLMACROS = init-macros.fnl
 FNLTESTS = $(wildcard tests/*.fnl)
 LUATESTS = $(FNLTESTS:.fnl=.lua)
 FNLDOCS = $(FNLMACROS) $(FNLSOURCES)

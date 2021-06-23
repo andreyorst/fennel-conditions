@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: error : warn : signal : make-condition &as cs} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest constructors
   (testing "default constructor"

@@ -2,7 +2,7 @@
 
 (require-macros :fennel-test.test)
 (local {: signal : Condition : make-condition &as cs} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest pack-test
   (testing "packed make condition"

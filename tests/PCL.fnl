@@ -1,5 +1,5 @@
 (require-macros :fennel-test.test)
-(require-macros :macros)
+(require-macros :init-macros)
 (local {: make-condition : invoke-restart : error} (require :init))
 
 (fn well-formed-log-entry? [text]

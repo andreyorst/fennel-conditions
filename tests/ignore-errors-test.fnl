@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: signal : error} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest ignore-errors-test
   (testing "ignore-errors returns normally"

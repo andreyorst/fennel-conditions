@@ -1,6 +1,6 @@
 (require-macros :fennel-test.test)
 (local {: invoke-restart : error} (require :init))
-(require-macros :macros)
+(require-macros :init-macros)
 
 (deftest coroutines
   (testing "coroutine without yields"

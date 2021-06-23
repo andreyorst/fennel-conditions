@@ -13,7 +13,7 @@ Clone this repository into your project:
 
 ## Usage
 
-This library provides it's public API in two files: `init.fnl` and `macros.fnl`.
+This library provides it's public API in two files: `init.fnl` and `init-macros.fnl`.
 `init.fnl` module defines functions:
 
 - `error`,
@@ -31,7 +31,7 @@ Every condition derives from `Condition` type.
 Errors automatically derive from both `Condition` and `Error`.
 Warnings automatically derive from both `Condition` and `Warning`.
 
-`macros.fnl` module provides the following macros:
+`init-macros.fnl` module provides the following macros:
 
 - `restart-case`,
 - `handler-bind`,
