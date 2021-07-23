@@ -435,7 +435,8 @@ an error occurred.  Similar to try/finally without a catch.
   : ignore-errors
   : unwind-protect}
  {:__index
-  {:_DESCRIPTION "Condition system for Fennel language.
+  {:_MODULE_NAME "macros"
+   :_DESCRIPTION "Condition system for Fennel language.
 
 This module provides a set of macros, that implement Common
 Lisp-inspired condition system for Fennel language."}})

@@ -9,7 +9,7 @@ It is based on the idea of leveraging tables to implement thread-local dynamic s
 
 Clone this repository into your project:
 
-    git clone https://gitlab.com/andreyorst/fennel-conditions.git
+    git clone https://gitlab.com/andreyorst/fennel-conditions.git conditions
 
 ## Usage
 
