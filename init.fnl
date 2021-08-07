@@ -1,16 +1,21 @@
 (local {: raise
         : invoke-restart
-        : pack
-        : invoke-debugger
         : find-restart
         : Condition
         : Warning
         : Error
-        : dynamic-scope
         : condition=}
   ;; Constructing relative path
   (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
                :impl.condition-system)))
+
+(local {: pack : dynamic-scope}
+  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
+               :impl.utils)))
+
+(local invoke-debugger
+  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
+               :impl.debugger)))
 
 (fn error* [condition-object]
   "Raise `condition-object' as an error.

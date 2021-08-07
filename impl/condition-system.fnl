@@ -1,301 +1,16 @@
-(local module (: (or ... "") :gsub "impl%.condition%-system$" ""))
-(local {: metadata : view : eval} (require :fennel))
+(local {: metadata : view} (require :fennel))
+(local {: dynamic-scope
+        : current-thread
+        : compose-error-message
+        : get-data
+        : get-name
+        : build-arg-str
+        : unpack
+        : pack}
+  (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1utils")))
 
-(local dynamic-scope
-  (metadata:set
-   {}
-   :fnl/docstring
-   "Dynamic scope for the condition system.
-
-Dynamic scope is a maintained table where handlers and restarts are
-stored thread-locally.  Thread name is obtained with
-`coroutine.running` call and each thread holds a table with the
-following keys `:handlers`, `:restarts`, and `:current-context`.
-Handlers and restarts itselves are tables."))
-
-;;; Utils
-
-(macro current-thread []
-  ;; Returns the name of current thread when possible
-  `(or (and coroutine
-            coroutine.running
-            (tostring (coroutine.running)))
-       :main))
-
-(fn get-name [condition-object]
-  ;; Extracts name string from `condition-object'.
-  ;;
-  ;; # Examples
-  ;;
-  ;; Condition objects return base condition name:
-  ;;
-  ;; ``` fennel
-  ;; (define-condition simple-error)
-  ;; (assert-eq
-  ;;  :simple-error
-  ;;  (get-name (make-condition simple-error -1)))
-  ;; ```
-  ;;
-  ;; Primitive objects are transformed with `tostring`:
-  ;;
-  ;; ``` fennel
-  ;; (assert-eq
-  ;;  \"-1\"
-  ;;  (get-name -1))
-  (if (and (= :table (type condition-object))
-           (= condition-object.type :condition))
-      (tostring condition-object.id.name)
-      (view condition-object)))
-
-(fn get-data [condition-object]
-  ;; Extracts data from `condition-object'.
-  ;;
-  ;; # Examples
-  ;;
-  ;; Extracting data set with `make-condition' function:
-  ;;
-  ;; ``` fennel
-  ;; (define-condition simple-error)
-  ;; (assert-eq
-  ;;  {1 :a 2 :b :n 2}
-  ;;  (get-data (make-condition simple-error :a :b)))
-  ;; ```
-  ;;
-  ;; Primitive objects return table with `:n` set to 0:
-  ;;
-  ;; ``` fennel
-  ;; (assert-eq
-  ;;  {:n 0}
-  ;;  (get-data :simple-condition))
-  ;; ```
-  (match (and (= :table (type condition-object))
-              (= condition-object.type :condition)
-              condition-object.data)
-    (where data data) data
-    _ {:n 0}))
-
-(fn build-arg-str [sep args]
-  ;; Constructs the string of arguments pretty-printed values stored
-  ;; in `args', separated by `sep'.
-  (let [res []]
-    (for [i 1 args.n]
-      (table.insert res (view (. args i) {:one-line? true})))
-    (table.concat res sep)))
-
-(fn compose-error-message [condition-object]
-  "Composes message for `condition-object' based on it's name and data
-stored within the object.
-
-# Examples
-
-Conditions without data produce short messages:
-
-``` fennel
-(define-condition simple-error)
-(assert-eq
- \"condition simple-error was raised\"
- (compose-error-message simple-error))
-```
-
-Conditions with data produce extended messages:
-
-``` fennel
-(define-condition simple-error)
-(assert-eq
- \"condition simple-error was raised with the following arguments: 1, 2, 3\"
- (compose-error-message (make-condition simple-error 1 2 3)))
-```"
-  (.. "condition " (get-name condition-object)
-      " was raised"
-      (match (build-arg-str ", " (get-data condition-object))
-        "" ""
-        s (.. " with the following arguments: " s))))
-
-(fn _unpack [tbl]
-  "Automatically try to query `tbl` for it's size `n` and unpack whole
-thing."
-  (let [len (or tbl.n (length tbl))
-        unpack-fn (or table.unpack _G.unpack)]
-    (unpack-fn tbl 1 len)))
-
-(local pack (or table.pack #(doto [$...] (tset :n (select :# $...)))))
-
-;;; Debugger
-
-(fn flatten-restarts [restarts scope]
-  (if scope
-      (let [ordered []]
-        (match scope.restart
-          restart (table.insert restarts
-                                (doto restart (tset :target scope.target))))
-        (flatten-restarts restarts scope.parent))
-      restarts))
-
-(fn take-action [{: name : restart : args : target : builtin?}]
-  (if builtin?
-      (_G.error {:builtin? true :data (restart)})
-      args
-      (do (io.stderr:write
-           "Provide inputs for " name
-           " (args: [" (table.concat args " ") "]) (^D to cancel)\n"
-           "debugger:" name ">> ")
-          (match (io.stdin:read "*l")
-            input (let [args (pack (eval (.. "(values " input ")")))]
-                    {:state :restarted
-                     :restart #(restart (_unpack args))
-                     :target target})
-            _ (do (io.stderr:write "\n") nil)))
-      {:state :restarted
-       : restart
-       : target}))
-
-(fn longest-name-lenght [length-fn restarts]
-  ;; Computes the longest restart name lenght
-  (var longest 0)
-  (each [_ {: name} (ipairs restarts)]
-    (let [len (length-fn name)]
-      (when (> len longest)
-        (set longest len))))
-  longest)
-
-(fn display-restart-prompt [restarts]
-  ;; Prints restart prompt.  Unique restart names are shown inside
-  ;; square brackets, and can be called by name.
-  (let [slength (or (?. _G :utf8 :len) #(length $))
-        max-name-width (longest-name-lenght slength restarts)
-        max-number-width (-> restarts length tostring length)
-        seen {}]
-    (io.stderr:write "restarts (invokable by number or by name):\n")
-    (each [i {: name : description} (ipairs restarts)]
-      (let [uniq-name (when (not (. seen name))
-                        (tset seen name true)
-                        name)
-            pad (string.rep " " (- max-name-width (slength (or uniq-name ""))))
-            restart-name (if uniq-name
-                             (.. "[" uniq-name pad "] ")
-                             (.. pad "   "))
-            number-pad (string.rep " " (+ 1 (- max-number-width (length (tostring i)))))]
-        (io.stderr:write
-         "  " i ":" number-pad restart-name
-         (if description
-             (description:gsub "\n" " ")
-             name)
-         "\n")))))
-
-;; forward declaration
-(var invoke-debugger nil)
-
-(fn restart-menu [restarts prompt? level]
-  ;; Interactive restart menu.  Restarts are displayed with the
-  ;; following format: `number: [name] name-or-docstring`, where
-  ;; `name` is a unique restart name in current menu.  Restarts can be
-  ;; called either by their number or unique name.  If restart accepts
-  ;; arguments, the second prompt will be displayed with a hint on
-  ;; what arguments are accepted by the restart.  If error occurs
-  ;; during input phase, second level of debugger is entered.
-  (when prompt?
-    (display-restart-prompt restarts))
-  (io.stderr:write "debugger>> ")
-  (let [named {}
-        _ (each [_ {: name &as restart} (ipairs restarts)]
-            (when (not (. named name))
-              (tset named name restart)))
-        input (io.stdin:read "*l")
-        action (. restarts (tonumber input))
-        named-action (. named input)]
-    (if (or action named-action)
-        (match (pcall take-action (or action named-action))
-          (true nil) (restart-menu restarts nil level) ; no user input provided
-          ;; Restart was found and no errors happened up to the restart call
-          (true restart) (_G.error restart)
-          ;; some builtin restart was called
-          (false {:builtin? true : data})
-          (match data
-            ;; exiting the nested debugger session
-            {:cancel true} data
-            ;; debugger invoked when no handlers were found, throwing error will land on the top level
-            {:throw true : message} (if (?. dynamic-scope (current-thread) :restarts :parent)
-                                        (_G.error {:state :error : message})
-                                        (_G.error message 3)))
-          ;; error happened during argument providing (likely). Entering nested debug session
-          (false res) (match (invoke-debugger res (+ (or level 1) 1))
-                        {:cancel true} (restart-menu restarts true level)))
-        (do (if (= nil input)
-                (io.stderr:write "\n")
-                (io.stderr:write "Wrong action. Use number from 1 to " (length restarts)
-                                 " or restart name.\n"))
-            (restart-menu restarts nil level)))))
-
-(fn invoke-debugger* [condition-object level]
-  "Invokes interactive debugger for given `condition-object'.  Accepts
-optional `level', indicating current debugger depth.
-
-Restarts in the menu are ordered by their definition order and dynamic
-scope depth.  Restarts can be called by their number in the menu or
-the name in square brackets.  For example, if `restart-case` defines
-two restarts `:a` and `:b` and outer `restart-case` bounds restarts
-`:a` and `:c` the following menu will be printed:
-
-```
-Debugger was invoked on unhandled condition:
-1: [a    ] a
-2: [b    ] b
-3:         a
-4: [c    ] c
-5: [throw] Throw condition as a Lua error
-debugger>>
-```
-
-If restart function has a docstring, it is printed after the square
-brackets.  If no docstring is found, restart name is printed.
-
-If restart accepts any arguments, a second prompt will be entered when
-restart is chosen from the menu.  Above the prompt a hint with
-argument names will be displayed.  In this prompt arguments to the
-restart are provided as expressions separated by space:
-
-```
-Provide inputs for some-restart (args: [some-arg other-arg]) (^D to cancel)
-debugger:some-restart>> (+ 1 2 3) {:some :table}
-```
-
-Debugger doesn't know anything about the environment, or variables, so
-in this prompt only fully realized values can be used.
-
-If an error happens during restart call, debug level increases, and
-new `cancel` restart is added to the menu, that allows returning to
-previous debug level."
-  (let [thread (current-thread)]
-    (when (= nil (. dynamic-scope thread))
-      (tset dynamic-scope thread {:handlers {}
-                                  :restarts {}}))
-    (let [restarts (flatten-restarts [] (. dynamic-scope thread :restarts))]
-      (when level
-        (table.insert restarts
-                      {:name :cancel
-                       :restart #{:cancel true}
-                       :builtin? true
-                       :description (.. "Return to level " (- level 1) " debugger")}))
-      (table.insert restarts
-                    {:name :throw
-                     :builtin? true
-                     :restart #{:throw true :message (compose-error-message condition-object)}
-                     :description "Throw condition as a Lua error"})
-      (io.stderr:write
-       (if level
-           (.. "Level " level " debugger")
-           "Debugger")
-       " was invoked on unhandled condition: "
-       (get-name condition-object)
-       (match (get-data condition-object)
-         (where args (> args.n 0))
-         (.. ", raised with the following arguments: "
-             (build-arg-str ", " args))
-         _ "")
-       "\n")
-      (restart-menu restarts true level))))
-
-(set invoke-debugger invoke-debugger*)
+(local invoke-debugger
+  (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1debugger")))
 
 ;;; Default condition objects
 
@@ -394,11 +109,11 @@ the restart."
       (do (tset thread-scope :current-context scope)
           (match scope.handler-type
             :handler-case {:state :handled
-                           :handler #(handler condition-object (_unpack (get-data condition-object)))
+                           :handler #(handler condition-object (unpack (get-data condition-object)))
                            :target scope.target
                            :condition-object condition-object
                            :type type*}
-            :handler-bind (do (handler condition-object (_unpack (get-data condition-object)))
+            :handler-bind (do (handler condition-object (unpack (get-data condition-object)))
                               (handle condition-object type* scope.parent))
             _ {:state :error
                :message (.. "wrong handler-type: " (view _))
@@ -428,15 +143,15 @@ restart is found, calls the restart function and returns a table with
 function."
   (let [args (pack ...)
         thread-scope (. dynamic-scope (current-thread))]
-    (_G.error (match (find-restart restart-name thread-scope.restarts)
-                (restart target) {:state :restarted
-                                  :restart #(restart (_unpack args))
-                                  :target target}
-                _ (let [msg (.. "restart " (view restart-name) " is not found")]
-                    (if thread-scope.current-context
-                        {:state :error
-                         :message msg}
-                        msg))) 2)))
+    (error (match (find-restart restart-name thread-scope.restarts)
+             (restart target) {:state :restarted
+                               :restart #(restart (unpack args))
+                               :target target}
+             _ (let [msg (.. "restart " (view restart-name) " is not found")]
+                 (if thread-scope.current-context
+                     {:state :error
+                      :message msg}
+                     msg))) 2)))
 
 ;;; Conditions
 
@@ -448,7 +163,7 @@ function."
   (match (handle condition-object (or type* :condition))
     (where (or {:state :handled &as res}
                {:state :restarted &as res}))
-    (_G.error res 2)
+    (error res 2)
     _ nil))
 
 (fn raise-warning [condition-object]
@@ -469,7 +184,7 @@ function."
   (match (raise-condition condition-object :error)
     nil (if _G.condition-system-use-debugger?
             (invoke-debugger condition-object)
-            (_G.error (compose-error-message condition-object) 2))))
+            (error (compose-error-message condition-object) 2))))
 
 (fn raise [condition-type condition-object]
   "Raises `condition-object' as a condition of `condition-type'.
@@ -501,21 +216,106 @@ function."
        (= c2.type :condition)
        (rawequal c1.id c2.id)))
 
+(fn pcall-handler-bind [f scope target orig-handlers]
+  "Call `f` in given `scope` and pass result up to `target`.
+Restore dynamic scope handlers to `orig-handlers`."
+  (let [(ok res) (pcall f)]
+    ;; Reset current scope context after exiting user code, but before
+    ;; actually handling the condition in order to avoid infinity
+    ;; loops.
+    (doto scope
+      (tset :current-context nil)
+      (tset :handlers orig-handlers))
+    (if ok (unpack res)
+        (match res
+          ;; Handled conditions are re-raised because `handler-bind`
+          ;; requires exiting handler with `restart-case` or another
+          ;; error.
+          {:state :handled : target}
+          (raise res.type res.condition-object)
+          ;; Internal errors bubble up the dynamic scope until no
+          ;; handlers and restarts left, to make sure we can't catch
+          ;; those accidentally.
+          {:state :error :message msg}
+          (if (or scope.handlers.parent
+                  scope.restarts.parent)
+              (error res)
+              (error msg 2))
+          _ (error res)))))
+
+(fn pcall-restart-case [f scope target orig-restarts]
+  "Call `f` in given `scope` and pass result up to `target`.
+Restore dynamic scope restarts to `orig-restarts`."
+  (let [restarts scope.restarts
+        (ok res) (pcall f)]
+    (doto scope
+      (tset :restarts orig-restarts)
+      (tset :current-context nil))
+    (if ok (unpack res)
+        (match res
+          {:state :restarted :target target} (res.restart)
+          {:state :restarted} (error res)
+          {:state :error :message msg}
+          (if (or scope.handlers.parent
+                  scope.restarts.parent)
+              (error res)
+              (error msg 2))
+          ;; Encountered Lua error, we restore bound restarts, and
+          ;; try to handle it as a condition.  Mostly repeats what
+          ;; was done for a condition
+          _ (let [(_ res2) (do (set scope.restarts restarts)
+                               (pcall raise :error res))]
+              (doto scope
+                (tset :restarts orig-restarts)
+                (tset :current-context nil))
+              (match res2
+                {:state :restarted : target} (res2.restart)
+                {:state :restarted} (error res2)
+                {:state :error :message msg2}
+                (if (or scope.handlers.parent
+                        scope.restarts.parent)
+                    (error res2)
+                    (error msg2 2))
+                ;; If Lua error was not handled, we throw it
+                ;; instead of fail result from the handler
+                _ (error res)))))))
+
+(fn pcall-handler-case [f scope target orig-handlers]
+  "Call `f` in given `scope` and pass result up to `target`.
+Restore dynamic scope handlers to `orig-handlers`."
+  (let [handlers scope.handlers
+        (ok res) (pcall f)]
+    (doto scope
+      (tset :handlers orig-handlers)
+      (tset :current-context nil))
+    (if ok (unpack res)
+        (match res
+          {:state :handled : target : handler} (handler)
+          {:state :error : message}
+          (if (or scope.handlers.parent
+                  scope.restarts.parent)
+              (error res)
+              (error message 2))
+          {:state :handled} (error res)
+          ;; In case Lua error was raised we reuse handlers defined
+          ;; within this `handler-case` and up the dynamic scope.
+          _ (match (find-handler res :error handlers)
+              {:handler handler} (handler res)
+              _ (error res))))))
+
 (setmetatable
  {: raise
   : invoke-restart
   : handle
   : find-handler
   : find-restart
-  : invoke-debugger
-  : compose-error-message
-  :pack (metadata:set pack :fnl/docstring "Portable `table.pack` implementation.")
-  :unpack _unpack
-  : dynamic-scope
   : Condition
   : Error
   : Warning
-  : condition=}
+  : condition=
+  : pcall-handler-bind
+  : pcall-restart-case
+  : pcall-handler-case}
  {:__index {:_DESCRIPTION "Condition system for Fennel language.
 
 This module is library's private API that provides functions meant for

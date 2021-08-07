@@ -20,8 +20,7 @@
  :order "alphabetic"
  :out-dir "./doc"
  :project-copyright "Copyright (C) 2021 Andrey Listopadov"
- :project-doc-order {:impl/condition-system.fnl ["dynamic-scope"
-                                                 "raise"
+ :project-doc-order {:impl/condition-system.fnl ["raise"
                                                  "handle"
                                                  "invoke-restart"]
                      :init.fnl ["error"
@@ -39,6 +38,12 @@
  :test-requirements {:impl/condition-system.fnl "(require-macros :fennel-test.test)
                                                  (require-macros :init-macros)
                                                  (local {: signal : continue : error : make-condition} (require :init))"
+                     :impl/utils.fnl "(require-macros :fennel-test.test)
+                                      (require-macros :init-macros)
+                                      (local {: signal : continue : error : make-condition} (require :init))"
+                     :impl/debugger.fnl "(require-macros :fennel-test.test)
+                                         (require-macros :init-macros)
+                                         (local {: signal : continue : error : make-condition} (require :init))"
                      :init.fnl "(require-macros :fennel-test.test)
                                 (require-macros :init-macros)
                                 (local {: make-condition} (require :init))"
