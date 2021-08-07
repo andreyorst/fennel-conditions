@@ -106,18 +106,18 @@ the restart."
             type*
             (or ?scope thread-scope.handlers))
       {: handler : scope}
-      (do (tset thread-scope :current-context scope)
-          (match scope.handler-type
-            :handler-case {:state :handled
-                           :handler #(handler condition-object (unpack (get-data condition-object)))
-                           :target scope.target
-                           :condition-object condition-object
-                           :type type*}
-            :handler-bind (do (handler condition-object (unpack (get-data condition-object)))
-                              (handle condition-object type* scope.parent))
-            _ {:state :error
-               :message (.. "wrong handler-type: " (view _))
-               :condition condition-object}))
+      (match scope.handler-type
+        :handler-case {:state :handled
+                       :handler #(handler condition-object (unpack (get-data condition-object)))
+                       :target scope.target
+                       :condition-object condition-object
+                       :type type*}
+        :handler-bind (do (tset thread-scope :current-context scope)
+                          (handler condition-object (unpack (get-data condition-object)))
+                          (handle condition-object type* scope.parent))
+        _ {:state :error
+           :message (.. "wrong handler-type: " (view _))
+           :condition condition-object})
       _ {:state :error
          :message (.. "no handler bound for condition: "
                       (get-name condition-object))
@@ -199,12 +199,15 @@ function."
         thread-scope (do (when (not (. dynamic-scope thread))
                            (tset dynamic-scope thread {:handlers {} :restarts {}}))
                          (. dynamic-scope thread))]
-    (match thread-scope.current-context
-      scope (let [target scope.target]
-              (var scope scope.parent)
-              (while (and scope (= target scope.target))
-                (set scope scope.parent))
-              (tset thread-scope :handlers scope)))
+    ;; unwind the dynamic stack if we're raising an error from a
+    ;; handler, executed in the handler-bind context.
+    (when (= thread-scope.handlers.handler-type :handler-bind)
+      (match thread-scope.current-context
+        scope (let [target scope.target]
+                (var scope scope.parent)
+                (while (and scope (= target scope.target))
+                  (set scope scope.parent))
+                (tset thread-scope :handlers scope))))
     (match condition-type
       :condition (raise-condition condition-object)
       :warning (raise-warning condition-object)
