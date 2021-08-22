@@ -107,11 +107,11 @@ Conditions with data produce extended messages:
         "" ""
         s (.. " with the following arguments: " s))))
 
+(local unpack-fn (or table.unpack _G.unpack))
 (fn unpack [tbl]
   "Automatically try to query `tbl` for it's size `n` and unpack whole
 thing."
-  (let [len (or tbl.n (length tbl))
-        unpack-fn (or table.unpack _G.unpack)]
+  (let [len (or tbl.n (length tbl))]
     (unpack-fn tbl 1 len)))
 
 (fn pack [...]

@@ -107,6 +107,13 @@
     (assert-eq
      "2 abc nil nil"
      (handler-case (error (make-condition err 2 "abc" nil nil))
+       (err [_c a b c d] (string.format "%s %s %s %s" a b c d)))))
+  (testing "getting when handling parent condition"
+    (define-condition err)
+    (define-condition err2 :parent err)
+    (assert-eq
+     "2 abc nil nil"
+     (handler-case (error (make-condition err2 2 "abc" nil nil))
        (err [_c a b c d] (string.format "%s %s %s %s" a b c d))))))
 
 (deftest unspecific-handler
