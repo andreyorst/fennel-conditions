@@ -1,4 +1,4 @@
-(require-macros :fennel-test.test)
+(require-macros :fennel-test)
 (import-macros {: restart-case : handler-bind : handler-case} :init-macros)
 (local {: error : signal : invoke-restart} (require :init))
 (local {: foo} (require :tests.multi-file-test-foo))

@@ -1,4 +1,4 @@
-(require-macros :fennel-test.test)
+(require-macros :fennel-test)
 (require-macros :init-macros)
 (local {: make-condition : invoke-restart : error} (require :init))
 

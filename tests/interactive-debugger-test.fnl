@@ -1,4 +1,4 @@
-(require-macros :fennel-test.test)
+(require-macros :fennel-test)
 (local {: error : invoke-debugger : make-condition} (require :init))
 (require-macros :init-macros)
 (set _G.condition-system-use-debugger? true)
@@ -98,10 +98,10 @@ restarts (invokable by number or by name):
   2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
 debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
-  unknown global in strict mode: a
+  unknown identifier in strict mode: a
 
 (values a)
-^
+        ^
 * Try looking to see if there's a typo.
 * Try using the _G table instead, eg. _G.a if you really want a global.
 * Try moving this code to somewhere that a is in scope.
@@ -128,10 +128,10 @@ restarts (invokable by number or by name):
   2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
 debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
-  unknown global in strict mode: a
+  unknown identifier in strict mode: a
 
 (values a)
-^
+        ^
 * Try looking to see if there's a typo.
 * Try using the _G table instead, eg. _G.a if you really want a global.
 * Try moving this code to somewhere that a is in scope.

@@ -1,6 +1,6 @@
 (set table.pack nil)
 
-(require-macros :fennel-test.test)
+(require-macros :fennel-test)
 (local {: signal : Condition : make-condition &as cs} (require :init))
 (require-macros :init-macros)
 

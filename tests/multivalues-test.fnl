@@ -1,4 +1,4 @@
-(require-macros :fennel-test.test)
+(require-macros :fennel-test)
 (local {: invoke-restart : error} (require :init))
 (require-macros :init-macros)
 
@@ -11,8 +11,8 @@
 
   (testing "passing correct multivalues to restart"
     (handler-bind [:e (fn [] (invoke-restart :r 1 2 nil 3 nil nil))]
-      (restart-case (error :e)
-        (:r [...] (assert-eq 6 (select :# ...)))))
+      (assert-eq 6 (restart-case (error :e)
+                     (:r [...] (select :# ...)))))
     (assert-is (handler-bind [:e (fn [] (invoke-restart :r 1 2 nil 3 nil nil))]
                  (restart-case (error :e)
                    (:r [...] (match ...

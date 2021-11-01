@@ -29,7 +29,7 @@ distclean: clean
 
 test: $(FNLTESTS)
 	@echo "Testing on" $$($(LUA) -v) >&2
-	@$(foreach test,$?,$(FENNEL) --lua $(LUA) --correlate $(test) || exit;)
+	@$(FENNEL) --lua $(LUA) fennel-test/runner $(FNLTESTS) || exit;
 ifdef FENNELDOC
 	@fenneldoc --mode check $(FNLDOCS) || exit
 else
@@ -44,7 +44,7 @@ testall: $(LUAEXECUTABLES)
 	@$(foreach lua,$?,LUA=$(lua) make test || exit;)
 
 luacov: COMPILEFLAGS = --no-metadata --correlate
-luacov: distclean build $(LUATESTS)
+luacov: distclean build $(LUATESTS) fennel-test/utils.lua
 	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
 	luacov
 ifdef LUACOV_COBERTURA
