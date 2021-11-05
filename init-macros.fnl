@@ -117,8 +117,11 @@ of `restart-case' and `invoke-restart'."
            ,scope ,(current-scope)
            orig-handlers# (. ,scope :handlers)]
        ,setup
-       (pcall-handler-bind#
-        #(pack# (do ,...)) ,scope ,target orig-handlers#))))
+       ,(if (. (get-scope) :vararg)
+            `(pcall-handler-bind#
+              (fn [...] (pack# (do ,...))) ,scope ,target orig-handlers# ...)
+            `(pcall-handler-bind#
+              (fn [] (pack# (do ,...))) ,scope ,target orig-handlers#)))))
 
 (fn restart-case [expr ...]
   "Condition restart point.
@@ -170,8 +173,11 @@ Specifying two restarts for `:signal-condition`:
            ,scope ,(current-scope)
            orig-restarts# (. ,scope :restarts)]
        ,setup
-       (pcall-restart-case#
-        #(pack# (do ,expr)) ,scope ,target orig-restarts#))))
+       ,(if (. (get-scope) :vararg)
+            `(pcall-restart-case#
+              (fn [...] (pack# (do ,expr))) ,scope ,target orig-restarts# ...)
+            `(pcall-restart-case#
+              (fn [] (pack# (do ,expr))) ,scope ,target orig-restarts#)))))
 
 (fn handler-case [expr ...]
   "Condition handling point, similar to try/catch.
@@ -216,8 +222,11 @@ Handling `error' condition:
            ,scope ,(current-scope)
            orig-handlers# (. ,scope :handlers)]
        ,setup
-       (pcall-handler-case#
-        #(pack# (do ,expr)) ,scope ,target orig-handlers#))))
+       ,(if (. (get-scope) :vararg)
+            `(pcall-handler-case#
+              (fn [...] (pack# (do ,expr))) ,scope ,target orig-handlers# ...)
+            `(pcall-handler-case#
+              (fn [] (pack# (do ,expr))) ,scope ,target orig-handlers#)))))
 
 (fn define-condition [condition-symbol ...]
   "Create base condition object with `condition-symbol' from which
@@ -256,11 +265,12 @@ and `divide-by-zero` condition with parent set to `math-error`, and handling it:
     (when (= nil condition-object.parent)
       (tset condition-object :parent `(. (require ,condition-system) :Condition)))
     `(local ,condition-symbol (let [{:condition= eq#} (require ,condition-system)
-                                    condition-object# ,condition-object]
+                                    condition-object# ,condition-object
+                                    name# condition-object#.name]
                                 (doto condition-object#
                                   (setmetatable {:__eq eq#
-                                                 :__name (.. "condition " condition-object#.name)
-                                                 :__fennelview #(.. "#<" (tostring $) ">")})
+                                                 :__name (.. "condition " name#)
+                                                 :__fennelview #(.. "#<condition " name# ">")})
                                   (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
@@ -344,7 +354,9 @@ an error occurred.  Similar to try/finally without a catch.
 (assert-eq [1 2] result)
 ```"
   `(let [{:pack pack# :unpack unpack#} (require ,utils)]
-     (let [(ok# res#) (pcall #(pack# (do ,expr)))]
+     (let [(ok# res#) ,(if (. (get-scope) :vararg)
+                           `(pcall (fn [...] (pack# (do ,expr))) ...)
+                           `(pcall (fn [] (pack# (do ,expr)))))]
        (if ok#
            (do (do ,...) (unpack# res#))
            (do (do ,...) (_G.error res#))))))

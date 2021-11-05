@@ -219,10 +219,10 @@ function."
        (= c2.type :condition)
        (rawequal c1.id c2.id)))
 
-(fn pcall-handler-bind [f scope target orig-handlers]
+(fn pcall-handler-bind [f scope target orig-handlers ...]
   "Call `f` in given `scope` and pass result up to `target`.
 Restore dynamic scope handlers to `orig-handlers`."
-  (let [(ok res) (pcall f)]
+  (let [(ok res) (pcall f ...)]
     ;; Reset current scope context after exiting user code, but before
     ;; actually handling the condition in order to avoid infinity
     ;; loops.
@@ -246,11 +246,11 @@ Restore dynamic scope handlers to `orig-handlers`."
               (error msg 2))
           _ (error res)))))
 
-(fn pcall-restart-case [f scope target orig-restarts]
+(fn pcall-restart-case [f scope target orig-restarts ...]
   "Call `f` in given `scope` and pass result up to `target`.
 Restore dynamic scope restarts to `orig-restarts`."
   (let [restarts scope.restarts
-        (ok res) (pcall f)]
+        (ok res) (pcall f ...)]
     (doto scope
       (tset :restarts orig-restarts)
       (tset :current-context nil))
@@ -283,11 +283,11 @@ Restore dynamic scope restarts to `orig-restarts`."
                 ;; instead of fail result from the handler
                 _ (error res)))))))
 
-(fn pcall-handler-case [f scope target orig-handlers]
+(fn pcall-handler-case [f scope target orig-handlers ...]
   "Call `f` in given `scope` and pass result up to `target`.
 Restore dynamic scope handlers to `orig-handlers`."
   (let [handlers scope.handlers
-        (ok res) (pcall f)]
+        (ok res) (pcall f ...)]
     (doto scope
       (tset :handlers orig-handlers)
       (tset :current-context nil))
