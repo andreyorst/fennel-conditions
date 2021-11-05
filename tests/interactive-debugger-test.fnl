@@ -29,84 +29,104 @@
 
 (local stdin-meta (. (getmetatable io.stdin) :__index))
 
-(deftest debugger
-  (testing "no scope"
-    (set stdin-meta.read (fn [] :1))
-    (with-no-stderr
-     (assert-not (pcall invoke-debugger))))
+(deftest no-scope-test
+  (set stdin-meta.read (fn [] :1))
+  (with-no-stderr
+   (assert-not (pcall invoke-debugger))))
 
-  (testing "default restart throws"
-    (set stdin-meta.read (fn [] "throw"))
-    (let [(_ msg) (with-no-stderr (pcall error :foo))]
-      (assert-is (msg:match "condition \"foo\" was raised") msg))
+(deftest default-restart-test
+  (set stdin-meta.read (fn [] "throw"))
+  (let [(_ msg) (with-no-stderr (pcall error :foo))]
+    (assert-is (msg:match "condition \"foo\" was raised") msg))
 
-    (define-condition bar)
-    (let [(_ msg) (with-no-stderr (pcall invoke-debugger (make-condition bar 1 nil)))]
-      (assert-is (msg:match "condition bar was raised with the following arguments: 1, nil") msg)))
+  (define-condition bar)
+  (let [(_ msg) (with-no-stderr (pcall invoke-debugger (make-condition bar 1 nil)))]
+    (assert-is (msg:match "condition bar was raised with the following arguments: 1, nil") msg)))
 
-  (testing "user bound restart"
-    (set stdin-meta.read (fn [] "restart"))
-    (assert-eq :ok (with-no-stderr
-                    (restart-case (invoke-debugger :foo)
-                      (:restart [] :ok)))))
+(deftest user-bound-restart-test
+  (set stdin-meta.read (fn [] "restart"))
+  (assert-eq :ok (with-no-stderr
+                  (restart-case (invoke-debugger :foo)
+                    (:restart [] :ok)))))
 
-  (testing "first non-unique restart chosen"
-    (set stdin-meta.read (fn [] "restart"))
-    (assert-eq :ok (with-no-stderr
-                    (restart-case
-                        (restart-case (invoke-debugger :foo)
-                          (:restart [] :ok)
-                          (:restart [] :err))
-                      (:restart [] :err)))))
+(deftest first-non-unique-restart-test
+  (set stdin-meta.read (fn [] "restart"))
+  (assert-eq :ok (with-no-stderr
+                  (restart-case
+                      (restart-case (invoke-debugger :foo)
+                        (:restart [] :ok)
+                        (:restart [] :err))
+                    (:restart [] :err)))))
 
-  (testing "restart-order"
-    (let [res []
-          foo (fn []
-                (with-no-stderr
-                 (restart-case
-                     (restart-case (invoke-debugger :foo)
-                       (:restart [] (table.insert res :ok1) :ok1)
-                       (:restart [] (table.insert res :ok2) :ok2))
-                   (:restart [] (table.insert res :ok3) :ok3))))]
-      (set stdin-meta.read (fn [] "1"))
-      (assert-eq :ok1 (foo))
-      (set stdin-meta.read (fn [] "2"))
-      (assert-eq :ok2 (foo))
-      (set stdin-meta.read (fn [] "3"))
-      (assert-eq :ok3 (foo))
-      (assert-eq res [:ok1 :ok2 :ok3])))
-
-  (testing "interactive restarts"
+(deftest restart-order-test
+  (let [res []
+        foo (fn []
+              (with-no-stderr
+               (restart-case
+                   (restart-case (invoke-debugger :foo)
+                     (:restart [] (table.insert res :ok1) :ok1)
+                     (:restart [] (table.insert res :ok2) :ok2))
+                 (:restart [] (table.insert res :ok3) :ok3))))]
     (set stdin-meta.read (fn [] "1"))
-    (assert-eq [1 :ok] (with-no-stderr
-                        (restart-case (invoke-debugger :foo)
-                          (:restart [a] [a :ok])))))
+    (assert-eq :ok1 (foo))
+    (set stdin-meta.read (fn [] "2"))
+    (assert-eq :ok2 (foo))
+    (set stdin-meta.read (fn [] "3"))
+    (assert-eq :ok3 (foo))
+    (assert-eq res [:ok1 :ok2 :ok3])))
 
-  (testing "error during interactive restart"
-    (var i 0)
-    (set stdin-meta.read (fn []
-                           (set i (+ i 1))
-                           (. ["1" "a" "2" "1" "42"] i)))
-    (assert-eq [42 :ok] (with-no-stderr
-                         (restart-case (invoke-debugger :foo)
-                           (:restart [a] [a :ok]))))
+(deftest interactive-restart-test
+  (set stdin-meta.read (fn [] "1"))
+  (assert-eq [1 :ok] (with-no-stderr
+                      (restart-case (invoke-debugger :foo)
+                        (:restart [a] [a :ok])))))
+
+(deftest error-during-interactive-restart-test
+  (fn escape [p]
+    (p:gsub "([][().%+-*?$^])" "%%%1"))
+  (var i 0)
+  (set stdin-meta.read (fn []
+                         (set i (+ i 1))
+                         (. ["1" "a" "2" "1" "42"] i)))
+  (assert-eq [42 :ok] (with-no-stderr
+                       (restart-case (invoke-debugger :foo)
+                         (:restart [a] [a :ok]))))
+  (set i 0)
+  (assert-is (string.match
+              (with-stderr-to-str
+               (restart-case (invoke-debugger :foo)
+                 (:restart [a] "restart-doc" [a :ok])))
+              (.. (escape "Debugger was invoked on unhandled condition: \"foo\"
+restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
+debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
+debugger:restart>> Level 2 debugger was invoked on unhandled condition:")
+                  ".*"
+                  (escape "restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [cancel ] Return to level 1 debugger
+  3: [throw  ] Throw condition as a Lua error
+debugger>> restarts (invokable by number or by name):
+  1: [restart] restart-doc
+  2: [throw  ] Throw condition as a Lua error
+debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
+debugger:restart>> "))))
+  (when _G.utf8
+    (tset _G.utf8 :len nil)
     (set i 0)
-    (assert-eq
-     "Debugger was invoked on unhandled condition: \"foo\"
+    (assert-is (string.match
+                (with-stderr-to-str
+                 (restart-case (invoke-debugger :bar)
+                   (:restart [a] "restart-doc" [a :ok])))
+                (.. (escape "Debugger was invoked on unhandled condition: \"bar\"
 restarts (invokable by number or by name):
   1: [restart] restart-doc
   2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
-debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
-  unknown identifier in strict mode: a
-
-(values a)
-        ^
-* Try looking to see if there's a typo.
-* Try using the _G table instead, eg. _G.a if you really want a global.
-* Try moving this code to somewhere that a is in scope.
-* Try binding a as a local in the scope of this code.\"
-restarts (invokable by number or by name):
+debugger:restart>> Level 2 debugger was invoked on unhandled condition:")
+                    ".*"
+                    (escape "restarts (invokable by number or by name):
   1: [restart] restart-doc
   2: [cancel ] Return to level 1 debugger
   3: [throw  ] Throw condition as a Lua error
@@ -114,51 +134,19 @@ debugger>> restarts (invokable by number or by name):
   1: [restart] restart-doc
   2: [throw  ] Throw condition as a Lua error
 debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
-debugger:restart>> "
-     (with-stderr-to-str
-      (restart-case (invoke-debugger :foo)
-        (:restart [a] "restart-doc" [a :ok]))))
-    (when _G.utf8
-      (tset _G.utf8 :len nil)
-      (set i 0)
-      (assert-eq
-       "Debugger was invoked on unhandled condition: \"foo\"
-restarts (invokable by number or by name):
-  1: [restart] restart-doc
-  2: [throw  ] Throw condition as a Lua error
-debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
-debugger:restart>> Level 2 debugger was invoked on unhandled condition: \"Compile error in unknown:1
-  unknown identifier in strict mode: a
+debugger:restart>> "))))))
 
-(values a)
-        ^
-* Try looking to see if there's a typo.
-* Try using the _G table instead, eg. _G.a if you really want a global.
-* Try moving this code to somewhere that a is in scope.
-* Try binding a as a local in the scope of this code.\"
-restarts (invokable by number or by name):
-  1: [restart] restart-doc
-  2: [cancel ] Return to level 1 debugger
-  3: [throw  ] Throw condition as a Lua error
-debugger>> restarts (invokable by number or by name):
-  1: [restart] restart-doc
-  2: [throw  ] Throw condition as a Lua error
-debugger>> Provide inputs for restart (args: [a]) (^D to cancel)
-debugger:restart>> "
-       (with-stderr-to-str
-        (restart-case (invoke-debugger :foo)
-          (:restart [a] "restart-doc" [a :ok]))))))
+(deftest throw-from-second-level-test
+  (var i 0)
+  (set stdin-meta.read (fn []
+                         (set i (+ i 1))
+                         (. ["1" "a" "3" "2"] i)))
+  (assert-eq false (pcall #(with-no-stderr
+                            (restart-case (invoke-debugger :foo)
+                              (:restart [a] [a :ok]))))))
 
-  (testing "throw from second level"
-    (var i 0)
-    (set stdin-meta.read (fn []
-                           (set i (+ i 1))
-                           (. ["1" "a" "3" "2"] i)))
-    (assert-eq false (pcall #(with-no-stderr
-                              (restart-case (invoke-debugger :foo)
-                                (:restart [a] [a :ok]))))))
-
-  (testing "throw from nested scopes"
+(deftest nested-scopes-test
+  (testing "throwing from nested scope"
     (set stdin-meta.read #"4")
     (assert-eq false (pcall #(with-no-stderr
                               (restart-case
