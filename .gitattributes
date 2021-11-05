@@ -1,1 +1,3 @@
-.fenneldoc gitlab-language=fennel linguist-language=fennel
+.fenneldoc gitlab-language=fennel linguist-language=fennel linguist-vendored
+.luacov linguist-vendored
+.dir-locals.el linguist-vendored
