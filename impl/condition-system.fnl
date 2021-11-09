@@ -306,6 +306,16 @@ Restore dynamic scope handlers to `orig-handlers`."
               {:handler handler} (handler res)
               _ (error res))))))
 
+(setmetatable Condition {:__eq condition=
+                         :__name "condition Condition"
+                         :__fennelview #(.. "#<" (tostring Condition) ">")})
+(setmetatable Warning {:__eq condition=
+                       :__name "condition Warning"
+                       :__fennelview #(.. "#<" (tostring Warning) ">")})
+(setmetatable Error {:__eq condition=
+                     :__name "condition Error"
+                     :__fennelview #(.. "#<" (tostring Error) ">")})
+
 (setmetatable
  {: raise
   : invoke-restart

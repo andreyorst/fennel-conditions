@@ -270,7 +270,7 @@ and `divide-by-zero` condition with parent set to `math-error`, and handling it:
                                 (doto condition-object#
                                   (setmetatable {:__eq eq#
                                                  :__name (.. "condition " name#)
-                                                 :__fennelview #(.. "#<condition " name# ">")})
+                                                 :__fennelview #(.. "#<" (tostring condition-object#) ">")})
                                   (tset :id condition-object#))))))
 
 (fn cerror [continue-description condition-object ...]
