@@ -1,3 +1,4 @@
+(local error _G.error) ; we export error which may redefine global error
 (local {: metadata : view} (require :fennel))
 (local {: dynamic-scope
         : current-thread
