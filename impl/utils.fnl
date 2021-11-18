@@ -101,11 +101,11 @@ Conditions with data produce extended messages:
  \"condition simple-error was raised with the following arguments: 1, 2, 3\"
  (compose-error-message (make-condition simple-error 1 2 3)))
 ```"
-  (.. "condition " (get-name condition-object)
-      " was raised"
-      (match (build-arg-str ", " (get-data condition-object))
-        "" ""
-        s (.. " with the following arguments: " s))))
+  (: "condition %s was raised%s" :format
+     (get-name condition-object)
+     (match (build-arg-str ", " (get-data condition-object))
+       "" ""
+       s (.. " with the following arguments: " s))))
 
 (local unpack-fn (or table.unpack _G.unpack))
 (fn unpack [tbl]

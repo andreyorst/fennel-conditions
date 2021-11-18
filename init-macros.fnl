@@ -1,15 +1,16 @@
 (local condition-system
   ;; Constructing relative paths for comp-time require call splicing
-  (if (and ... (not= ... :init-macros))
-      (.. ... :.impl.condition-system)
-      :impl.condition-system))
+  (.. (if (= ... :init-macros) "" (.. ... :.)) :impl.condition-system))
 
 (local utils
-  (if (and ... (not= ... :init-macros))
-      (.. ... :.impl.utils)
-      :impl.utils))
+  (.. (if (= ... :init-macros) "" (.. ... :.)) :impl.utils))
 
-;;; Utils
+
+;;; Utility functions
+
+(fn vararg? []
+  ;; Check if ... is in in scope.
+  (. (get-scope) :vararg))
 
 (fn current-scope []
   ;; A getter for current dynamic scope
@@ -45,7 +46,8 @@
       (tset tbl (. seq i) (. seq (+ i 1))))
     tbl))
 
-;;; Condition library macros
+
+;;; Condition library public API macros
 
 (fn handler-bind [binding-vec ...]
   "Bind handlers to conditions.
@@ -117,7 +119,7 @@ of `restart-case' and `invoke-restart'."
            ,scope ,(current-scope)
            orig-handlers# (. ,scope :handlers)]
        ,setup
-       ,(if (. (get-scope) :vararg)
+       ,(if (vararg?)
             `(pcall-handler-bind#
               (fn [...] (pack# (do ,...))) ,scope ,target orig-handlers# ...)
             `(pcall-handler-bind#
@@ -173,7 +175,7 @@ Specifying two restarts for `:signal-condition`:
            ,scope ,(current-scope)
            orig-restarts# (. ,scope :restarts)]
        ,setup
-       ,(if (. (get-scope) :vararg)
+       ,(if (vararg?)
             `(pcall-restart-case#
               (fn [...] (pack# (do ,expr))) ,scope ,target orig-restarts# ...)
             `(pcall-restart-case#
@@ -222,7 +224,7 @@ Handling `error' condition:
            ,scope ,(current-scope)
            orig-handlers# (. ,scope :handlers)]
        ,setup
-       ,(if (. (get-scope) :vararg)
+       ,(if (vararg?)
             `(pcall-handler-case#
               (fn [...] (pack# (do ,expr))) ,scope ,target orig-handlers# ...)
             `(pcall-handler-case#
@@ -354,7 +356,7 @@ an error occurred.  Similar to try/finally without a catch.
 (assert-eq [1 2] result)
 ```"
   `(let [{:pack pack# :unpack unpack#} (require ,utils)]
-     (let [(ok# res#) ,(if (. (get-scope) :vararg)
+     (let [(ok# res#) ,(if (vararg?)
                            `(pcall (fn [...] (pack# (do ,expr))) ...)
                            `(pcall (fn [] (pack# (do ,expr)))))]
        (if ok#

@@ -184,4 +184,4 @@ previous debug level."
 
 (set invoke-debugger invoke-debugger*)
 
-invoke-debugger
+{: invoke-debugger}

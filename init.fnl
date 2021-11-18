@@ -5,17 +5,13 @@
         : Warning
         : Error
         : condition=}
-  ;; Constructing relative path
-  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
-               :impl.condition-system)))
+  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.condition-system))) ; Constructing relative path
 
 (local {: pack : dynamic-scope}
-  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
-               :impl.utils)))
+  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.utils)))
 
-(local invoke-debugger
-  (require (.. (or (and ... (not= ... :init) (.. ... ".")) "")
-               :impl.debugger)))
+(local {: invoke-debugger}
+  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.debugger)))
 
 (fn error* [condition-object]
   "Raise `condition-object' as an error.

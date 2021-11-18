@@ -1,4 +1,4 @@
-(local error _G.error) ; we export error which may redefine global error
+(local error _G.error) ; error is exported in init.fnl which may redefine global error function
 (local {: metadata : view} (require :fennel))
 (local {: dynamic-scope
         : current-thread
@@ -10,9 +10,10 @@
         : pack}
   (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1utils")))
 
-(local invoke-debugger
+(local {: invoke-debugger}
   (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1debugger")))
 
+
 ;;; Default condition objects
 
 (local Condition
@@ -43,6 +44,7 @@ Inherits `Condition'.")
               "Condition object that acts as a base for all error conditions.
 Inherits `Condition'.")
 
+
 ;;; Handlers
 
 (fn find-parent-handler [condition-object scope]
@@ -124,7 +126,7 @@ the restart."
                       (get-name condition-object))
          :condition condition-object})))
 
-
+
 ;;; Restarts
 
 (fn find-restart [restart-name scope]
@@ -154,6 +156,7 @@ function."
                       :message msg}
                      msg))) 2)))
 
+
 ;;; Conditions
 
 (fn raise-condition [condition-object type*]
