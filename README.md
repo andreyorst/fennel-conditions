@@ -60,9 +60,9 @@ Each macro that handles conditional situations wraps its body in `pcall`, and en
 Unhandled conditions bubble up the dynamic scope stack, and are converted to Lua errors if no parent dynamic scope is found, thus can be caught with `pcall`.
 But this style should be avoided, and appropriate handlers should be registered with `handler-case` or `handler-bind`.
 
-This library provides its own `error` function meant as a replacement to Lua's `error`, but the library itself still internally uses the `_G.error` (i.e. original Lua `error`) function to transfer control.
-Therefore it is strongly not recommended to override `_G.error`.
-You should absolutely not set `_G.error` to the `error` function provided by this library, as it will create infinite loops.
+This library provides its own `error` function meant as a replacement to Lua's `error`.
+The library caches the original `error` function, and uses it internally, and it's not recommended to override `_G.error`.
+Since the library reads global value of `error` on initialization, the reloading of the library should be avoided, in case `_G.error` was set to `error` provided by the library.
 
 ## Documentation
 
