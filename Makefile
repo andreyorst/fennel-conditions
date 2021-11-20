@@ -44,7 +44,7 @@ testall: $(LUAEXECUTABLES)
 	@$(foreach lua,$?,LUA=$(lua) make test || exit;)
 
 luacov: COMPILEFLAGS = --no-metadata --correlate
-luacov: distclean build $(LUATESTS) fennel-test/utils.lua
+luacov: distclean build $(LUATESTS) tests/multi-file-test-foo.lua fennel-test/utils.lua
 	@$(foreach test,$(LUATESTS),$(LUA) -lluarocks.loader -lluacov $(test) || exit;)
 	luacov
 ifdef LUACOV_COBERTURA
