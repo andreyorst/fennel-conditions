@@ -1,3 +1,10 @@
+(macro rel-require [module macro?]
+  `(require (.. (or (: (or ... "") :match "(.+%.)[^.]+")
+                    (if (= ... ,(if macro? "init-macros" "init"))
+                        ""
+                        (.. ... ".")))
+                ,module)))
+
 (local {: eval} (require :fennel))
 (local {: dynamic-scope
         : current-thread
@@ -7,7 +14,7 @@
         : unpack
         : pack
         : build-arg-str}
-  (require (: (or ... "") :gsub "(impl%.)debugger$" "%1utils")))
+  (rel-require :utils))
 
 (fn flatten-restarts [restarts scope]
   (if scope

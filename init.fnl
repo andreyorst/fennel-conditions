@@ -1,3 +1,10 @@
+(macro rel-require [module macro?]
+  `(require (.. (or (: (or ... "") :match "(.+%.)[^.]+")
+                    (if (= ... ,(if macro? "init-macros" "init"))
+                        ""
+                        (.. ... ".")))
+                ,module)))
+
 (local {: raise
         : invoke-restart
         : find-restart
@@ -5,13 +12,13 @@
         : Warning
         : Error
         : condition=}
-  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.condition-system))) ; Constructing relative path
+  (rel-require :impl.condition-system)) ; Constructing relative path
 
 (local {: pack : dynamic-scope}
-  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.utils)))
+  (rel-require :impl.utils))
 
 (local {: invoke-debugger}
-  (require (.. (if (= ... :init) "" (.. ... :.)) :impl.debugger)))
+  (rel-require :impl.debugger))
 
 (fn error* [condition-object]
   "Raise `condition-object' as an error.

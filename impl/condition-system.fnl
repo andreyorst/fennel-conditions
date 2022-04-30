@@ -1,3 +1,10 @@
+(macro rel-require [module macro?]
+  `(require (.. (or (: (or ... "") :match "(.+%.)[^.]+")
+                    (if (= ... ,(if macro? "init-macros" "init"))
+                        ""
+                        (.. ... ".")))
+                ,module)))
+
 (local error _G.error) ; error is exported in init.fnl which may redefine global error function
 (local {: metadata : view} (require :fennel))
 (local {: dynamic-scope
@@ -8,10 +15,10 @@
         : build-arg-str
         : unpack
         : pack}
-  (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1utils")))
+  (rel-require :utils))
 
 (local {: invoke-debugger}
-  (require (: (or ... "") :gsub "(impl%.)condition%-system$" "%1debugger")))
+  (rel-require :debugger))
 
 
 ;;; Default condition objects
